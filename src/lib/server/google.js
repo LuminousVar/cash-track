@@ -3,7 +3,8 @@
 import { GoogleAuth } from 'google-auth-library';
 import { env } from '$env/dynamic/private';
 
-const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+// Satu service account untuk Sheets + Vision (lihat RENCANA.md).
+const SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/cloud-platform'];
 const BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 /** Nama tab sheet (default "Sheet1"). */
@@ -53,4 +54,19 @@ export async function appendRow(values, range = SHEET_TAB) {
 	const client = await getClient();
 	const url = `${BASE}/${env.GOOGLE_SHEET_ID}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
 	await client.request({ url, method: 'POST', data: { values: [values] } });
+}
+
+/**
+ * OCR gambar (base64) via Cloud Vision DOCUMENT_TEXT_DETECTION → teks mentah.
+ * @param {string} base64
+ * @returns {Promise<string>}
+ */
+export async function visionOcr(base64) {
+	const client = await getClient();
+	const body = {
+		requests: [{ image: { content: base64 }, features: [{ type: 'DOCUMENT_TEXT_DETECTION' }] }]
+	};
+	const res = await client.request({ url: 'https://vision.googleapis.com/v1/images:annotate', method: 'POST', data: body });
+	const r = /** @type {any} */ (res.data).responses?.[0];
+	return r?.fullTextAnnotation?.text ?? '';
 }

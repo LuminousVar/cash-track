@@ -136,6 +136,32 @@ export async function addExpense(input) {
 	return { persisted: true };
 }
 
+/**
+ * Simpan hasil struk dari Telegram ke Sheet (source='telegram').
+ * @param {import('./deepseek.js').ParsedReceipt} parsed
+ * @param {{ fileId?: string, rawText?: string, user?: string | number }} meta
+ */
+export async function addReceipt(parsed, { fileId = '', rawText = '', user = '' }) {
+	if (!isConfigured()) return { persisted: false };
+	const row = [
+		new Date().toISOString(), // timestamp
+		parsed.date, // date
+		parsed.merchant || '', // merchant
+		String(Math.round(Number(parsed.total) || 0)), // total
+		parsed.currency || 'IDR', // currency
+		parsed.category || 'Lainnya', // category
+		parsed.payment_method || '', // payment_method
+		JSON.stringify(parsed.items ?? []), // items
+		fileId, // photo_url (Telegram file_id)
+		rawText, // raw_text (OCR)
+		'telegram', // source
+		String(user), // user
+		'' // notes
+	];
+	await appendRow(row, SHEET_TAB);
+	return { persisted: true };
+}
+
 // ── Data contoh (dev/preview) ───────────────────────────────────────────────
 const DEMO_TX = [
 	{ merchant: 'Indomaret', date: '2024-07-02', category: 'Belanja', method: 'QRIS', total: 87_500, source: 'telegram' },
