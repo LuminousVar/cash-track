@@ -20,6 +20,18 @@ Personal expense tracker powered by a Telegram bot. Send a receipt photo → Vis
 - **Auth** — login-protected dashboard with argon2id password hashing and signed session cookies
 - **Demo mode** — works without any env vars for local preview (sample data shown)
 
+## Why no database?
+
+Most projects like this reach for Supabase, Neon, PlanetScale, or some other managed database the moment data needs to be stored. For a single-user expense tracker, that means creating accounts, managing connection strings, worrying about free tier limits, and dealing with cold start latency on every serverless invocation.
+
+cash-track skips all of that. **Google Sheets is the database.** One row per expense, 13 columns, fully human-readable. You can open the spreadsheet, filter by month, edit a typo, export to CSV, or share it with someone — without any tooling or SQL knowledge. The Sheets API is free within Google's generous quota and runs entirely on infrastructure you already have.
+
+No ORM. No migrations. No connection pooling. No database URL to rotate. No paid plan that kicks in after 500MB. Your data lives in a file you own, not in a vendor's cloud you rent.
+
+There is also a privacy angle. Expense data is personal — it tells a story about where you eat, what you buy, how you spend your money every day. With a managed database, that data sits on someone else's server under someone else's terms of service. With cash-track, every transaction goes directly into your own Google Sheet. Only you have access. You decide who sees it, when to delete it, and where it goes. No one else touches your data.
+
+For a personal finance tracker that one person uses daily, this is exactly the right tradeoff.
+
 ## Stack
 
 - [SvelteKit 2](https://kit.svelte.dev) + Svelte 5 (runes) · deployed on [Vercel](https://vercel.com)
