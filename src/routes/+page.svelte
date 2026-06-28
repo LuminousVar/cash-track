@@ -2,10 +2,19 @@
 	import AddExpenseModal from '$lib/components/AddExpenseModal.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import { formatRp, formatRpShort, formatDate, CATEGORY_TONE } from '$lib/format.js';
+	import { buildInsight } from '$lib/insight.js';
 
 	let { data } = $props();
 
 	let showAdd = $state(false);
+
+	const insight = $derived(buildInsight(data));
+	/** @type {Record<'aman' | 'waspada' | 'lewat', { ring: string, chip: string, icon: string }>} */
+	const insightTone = {
+		aman: { ring: 'ring-forest-700/15', chip: 'bg-active text-forest-700', icon: 'text-forest-600' },
+		waspada: { ring: 'ring-warn/25', chip: 'bg-warn-bg text-warn', icon: 'text-warn' },
+		lewat: { ring: 'ring-[#dc2626]/25', chip: 'bg-[#fef2f2] text-[#dc2626]', icon: 'text-[#dc2626]' }
+	};
 
 	const maxFlow = $derived(Math.max(1, ...data.monthlyFlow.map((m) => m.amount)));
 	const peakIndex = $derived(data.monthlyFlow.reduce((bi, m, i, a) => (m.amount > a[bi].amount ? i : bi), 0));
@@ -39,8 +48,24 @@
 	</button>
 </PageHeader>
 
+<!-- ── Kartu Wawasan (insight rule-based) ── -->
+<section class="mt-6 flex items-start gap-4 rounded-card bg-surface p-5 ring-1 {insightTone[insight.tone].ring}">
+	<span class="grid size-10 shrink-0 place-items-center rounded-xl {insightTone[insight.tone].chip}">
+		<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class={insightTone[insight.tone].icon}>
+			<path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z" />
+			<path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2Z" />
+		</svg>
+	</span>
+	<div class="min-w-0 flex-1">
+		<p class="text-xs font-bold uppercase tracking-wider text-ink-mute">Wawasan</p>
+		<p class="mt-1.5 text-sm leading-relaxed text-ink-soft [&_strong]:font-semibold [&_strong]:text-ink">
+			{@html insight.text}
+		</p>
+	</div>
+</section>
+
 <!-- ── Kartu ringkasan ── -->
-<section class="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
+<section class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
 	<!-- Total pengeluaran (semua waktu) -->
 	<article class="rounded-card bg-surface p-5">
 		<div class="flex items-center justify-between">
