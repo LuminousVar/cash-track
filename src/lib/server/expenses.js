@@ -2,7 +2,7 @@
 // Saat env Google belum diisi (dev), pakai DEMO agar dashboard tetap tampil penuh.
 import { env } from '$env/dynamic/private';
 import { readRows, appendRow, isConfigured, SHEET_TAB } from './google.js';
-import { MONTHS } from '$lib/format.js';
+import { MONTHS, CATEGORIES } from '$lib/format.js';
 
 export { isConfigured };
 
@@ -17,7 +17,7 @@ function monthlyBudget() {
 }
 
 /**
- * @typedef {{ merchant: string, date: string, category: string, method: string, total: number, source: 'telegram' | 'manual', notes: string }} Expense
+ * @typedef {{ merchant: string, date: string, category: string, method: string, total: number, source: 'telegram' | 'manual', notes?: string }} Expense
  */
 
 /**
@@ -103,6 +103,30 @@ function computeDashboard(expenses) {
 	};
 }
 
+/** Semua pengeluaran (terbaru dulu). DEMO bila Sheet belum dikonfigurasi. */
+export async function getExpenses() {
+	return isConfigured() ? listExpenses() : DEMO.transactions;
+}
+
+/** Anggaran bulanan aktif (dari env, default). */
+export function getBudget() {
+	return monthlyBudget();
+}
+
+/** Laporan: arus bulanan, ringkasan, dan total per kategori (all-time). */
+export async function getReport() {
+	if (!isConfigured()) {
+		return { demo: true, monthlyFlow: DEMO.monthlyFlow, summary: DEMO.summary, categoryTotals: DEMO_CATEGORY_TOTALS };
+	}
+	const expenses = await listExpenses();
+	const { summary, monthlyFlow } = computeDashboard(expenses);
+	/** @type {Record<string, number>} */
+	const map = {};
+	for (const e of expenses) map[e.category] = (map[e.category] || 0) + e.total;
+	const categoryTotals = CATEGORIES.map((c) => ({ name: c, amount: map[c] || 0 })).sort((a, b) => b.amount - a.amount);
+	return { demo: false, monthlyFlow, summary, categoryTotals };
+}
+
 /** Data untuk halaman dashboard. Pakai DEMO bila Sheet belum dikonfigurasi. */
 export async function getDashboardData() {
 	if (!isConfigured()) return { ...DEMO, demo: true };
@@ -163,6 +187,7 @@ export async function addReceipt(parsed, { fileId = '', rawText = '', user = '' 
 }
 
 // ── Data contoh (dev/preview) ───────────────────────────────────────────────
+/** @type {Expense[]} */
 const DEMO_TX = [
 	{ merchant: 'Indomaret', date: '2024-07-02', category: 'Belanja', method: 'QRIS', total: 87_500, source: 'telegram' },
 	{ merchant: 'Gojek', date: '2024-07-02', category: 'Transport', method: 'E-wallet', total: 32_000, source: 'telegram' },
@@ -172,6 +197,17 @@ const DEMO_TX = [
 	{ merchant: 'Warteg Bahari', date: '2024-06-30', category: 'Makanan', method: 'Tunai', total: 18_000, source: 'manual' },
 	{ merchant: 'Netflix', date: '2024-06-29', category: 'Hiburan', method: 'Kartu Kredit', total: 186_000, source: 'telegram' },
 	{ merchant: 'Apotek K24', date: '2024-06-29', category: 'Kesehatan', method: 'Tunai', total: 64_000, source: 'manual' }
+];
+
+// Total per kategori (all-time) untuk demo — jumlahnya = DEMO.summary.totalAllTime.
+const DEMO_CATEGORY_TOTALS = [
+	{ name: 'Makanan', amount: 24_500_000 },
+	{ name: 'Belanja', amount: 16_200_000 },
+	{ name: 'Transport', amount: 11_800_000 },
+	{ name: 'Tagihan', amount: 9_400_000 },
+	{ name: 'Hiburan', amount: 4_600_000 },
+	{ name: 'Kesehatan', amount: 2_900_000 },
+	{ name: 'Lainnya', amount: 1_475_000 }
 ];
 
 const DEMO = {
