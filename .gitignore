@@ -12,6 +12,10 @@ node_modules
 .DS_Store
 Thumbs.db
 
+# Referensi desain (tidak perlu di-commit ke repo publik)
+image.png
+ref/
+
 # Env
 .env
 .env.*

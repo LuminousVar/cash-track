@@ -64,8 +64,31 @@
 	}
 }
 
+/* ── Dark mode — override design tokens saat class .dark ada di <html> ── */
+.dark {
+	--color-canvas: #0d1511;
+	--color-surface: #162018;
+	--color-line: #253525;
+
+	--color-ink: #dce9e0;
+	--color-ink-soft: #7d9e8a;
+	--color-ink-mute: #4a6555;
+
+	--color-active: #1c3225;
+
+	--color-success: #56c87a;
+	--color-success-bg: #0f2018;
+	--color-warn: #e0a838;
+	--color-warn-bg: #291c08;
+
+	--color-lime-100: #182a08;
+}
+
 /* scrollbar halus */
 * {
 	scrollbar-width: thin;
 	scrollbar-color: #d6d8db transparent;
+}
+.dark * {
+	scrollbar-color: #2e4535 transparent;
 }

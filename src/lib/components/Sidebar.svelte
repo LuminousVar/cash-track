@@ -5,6 +5,8 @@
 
 	// Ikon inline (gaya Lucide) — string path, dibungkus <svg> saat render.
 	const ic = {
+		sun: '<circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',
+		moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/>',
 		dashboard:
 			'<rect x="3" y="3" width="7" height="9" rx="1.4"/><rect x="14" y="3" width="7" height="5" rx="1.4"/><rect x="14" y="12" width="7" height="9" rx="1.4"/><rect x="3" y="16" width="7" height="5" rx="1.4"/>',
 		receipt:
@@ -38,6 +40,16 @@
 	const isActive = (href) => (href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href));
 
 	const initials = $derived((user ?? 'CT').slice(0, 2).toUpperCase());
+
+	let dark = $state(false);
+	$effect(() => {
+		dark = document.documentElement.classList.contains('dark');
+	});
+	function toggleTheme() {
+		dark = !dark;
+		document.documentElement.classList.toggle('dark', dark);
+		localStorage.setItem('ct-theme', dark ? 'dark' : 'light');
+	}
 </script>
 
 <aside class="flex h-full w-[244px] shrink-0 flex-col bg-surface px-4 py-5">
@@ -104,6 +116,15 @@
 		</div>
 		<p class="mt-1.5 text-xs leading-relaxed text-white/70">Kirim foto struk ke bot, otomatis tercatat di sini.</p>
 	</a>
+
+	<!-- Toggle dark mode -->
+	<button
+		onclick={toggleTheme}
+		class="mt-3 flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-ink-soft transition-colors hover:bg-canvas hover:text-ink"
+	>
+		<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{@html dark ? ic.sun : ic.moon}</svg>
+		<span>{dark ? 'Tema Terang' : 'Tema Gelap'}</span>
+	</button>
 
 	<!-- Akun + logout -->
 	{#if user}
