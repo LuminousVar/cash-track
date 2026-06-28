@@ -2,24 +2,30 @@
 
 Personal expense tracker powered by a Telegram bot. Send a receipt photo → Vision OCR → DeepSeek parses it → saved to Google Sheets → visible on a SvelteKit dashboard.
 
+> Built for a single user (or a small household). Self-hosted on Vercel, data lives in your own Google Sheet.
+
 ## Features
 
-- **Telegram bot** — send a receipt photo, get an automatic reply with parsed details
+- **Telegram bot** — send a receipt photo, get an automatic reply with parsed details (merchant, total, category, items)
 - **Vision OCR** — Google Cloud Vision extracts text from any receipt image
-- **AI parsing** — DeepSeek structures the raw text (merchant, total, items, category, payment method)
-- **Google Sheets backend** — all expenses stored in a spreadsheet you own
-- **SvelteKit dashboard** — view spending, filter by category, see monthly charts
-- **Manual entry** — add expenses via the web form (with per-item breakdown)
-- **Dark mode** — toggle in sidebar, remembers your preference
-- **Auth** — login-protected dashboard (argon2id password hashing)
-- **Demo mode** — works without any env vars for local preview
+- **AI parsing** — DeepSeek (`deepseek-v4`) structures the raw text into clean JSON
+- **Google Sheets backend** — all expenses stored in a spreadsheet you own and control
+- **SvelteKit dashboard** — monthly chart, category breakdown, recent transactions, spending summary
+- **Manual entry** — add expenses via the web form with per-item breakdown (name, qty, price)
+- **Budget management** — set a monthly limit, track progress with a visual gauge, view 12-month history
+- **Budget alerts via Telegram** — get a notification when spending hits a configurable warning threshold (default 80%) and again when the budget is exceeded
+- **Smart insight card** — rule-based analysis on the dashboard: spending status, trend vs last month, top category, and end-of-month projection
+- **In-app settings** — configure all API keys and tokens directly from the `/pengaturan` page without touching env files
+- **Dark mode** — toggle in the page header, remembers your preference
+- **Auth** — login-protected dashboard with argon2id password hashing and signed session cookies
+- **Demo mode** — works without any env vars for local preview (sample data shown)
 
 ## Stack
 
 - [SvelteKit 2](https://kit.svelte.dev) + Svelte 5 (runes) · deployed on [Vercel](https://vercel.com)
 - [Tailwind CSS v4](https://tailwindcss.com) via `@tailwindcss/vite`
 - [Bun](https://bun.sh) as package manager & runtime
-- Google Cloud Vision · Google Sheets API · DeepSeek API · Telegram Bot API
+- Google Cloud Vision · Google Sheets API · DeepSeek API · Telegram Bot API · `@node-rs/argon2`
 
 ---
 
@@ -51,12 +57,9 @@ timestamp  date  merchant  total  currency  category  payment_method  items  pho
 2. Enable **Google Sheets API** and **Cloud Vision API**.
 3. Create a **Service Account** → generate a JSON key.
 4. Share the spreadsheet with the service account email (give **Editor** access).
-5. Convert the JSON key to a single line (or base64) for the env var:
+5. Convert the JSON key to a single line for the env var:
    ```bash
-   # single-line JSON (remove all newlines):
    cat service-account.json | tr -d '\n'
-   # or base64:
-   base64 -w 0 service-account.json
    ```
 
 ### 4. Telegram Bot
@@ -80,23 +83,33 @@ cp .env.example .env
 ```
 
 ```env
+# Telegram
 TELEGRAM_BOT_TOKEN=         # from @BotFather
 TELEGRAM_SECRET_TOKEN=      # random string you chose
-TELEGRAM_ALLOWED_IDS=       # comma-separated Telegram user IDs (e.g. 12345678,98765432)
+TELEGRAM_ALLOWED_IDS=       # comma-separated Telegram user IDs (e.g. 12345678)
 
+# DeepSeek
 DEEPSEEK_API_KEY=
 
-GOOGLE_SERVICE_ACCOUNT=     # single-line JSON or base64
+# Google
+GOOGLE_SERVICE_ACCOUNT=     # single-line JSON
 GOOGLE_SHEET_ID=
 GOOGLE_SHEET_TAB=Sheet1
-MONTHLY_BUDGET=9500000      # optional, shown in dashboard budget gauge
 
+# Budget
+MONTHLY_BUDGET=9500000      # monthly spending limit (Rupiah)
+BUDGET_WARN_PCT=80          # send a warning alert at this % of budget (default 80)
+BUDGET_NOTIFY_CHAT_ID=      # Telegram chat ID to send budget alerts to (defaults to first ID in ALLOWED_IDS)
+
+# Auth
 AUTH_USERNAME=your-username
 AUTH_PASSWORD_HASH=         # see step 7 below
-SESSION_SECRET=             # random string >=32 chars
+SESSION_SECRET=             # random string >= 32 chars
 ```
 
 > **Never commit `.env`** — only `.env.example` belongs in the repo.
+>
+> Budget and API settings can also be changed at runtime from the **Pengaturan** page in the dashboard (no restart needed). On Vercel, changes persist per instance; use env vars for permanent config.
 
 ### 7. Generate password hash
 
@@ -125,39 +138,36 @@ Visit `http://localhost:5173`. Without env vars the dashboard runs in **demo mod
 
 ### Register the Telegram webhook (one-time)
 
-After deploy, run this once (replace the placeholders):
+After deploy, run this once in your browser or with `curl` (replace the placeholders):
 
 ```
-https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook
-  ?url=https://<your-app>.vercel.app/api/telegram
-  &secret_token=<TELEGRAM_SECRET_TOKEN>
+https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<your-app>.vercel.app/api/telegram&secret_token=<TELEGRAM_SECRET_TOKEN>
 ```
 
-Paste it in your browser or use `curl`. Telegram will confirm `{"ok":true}`.
+Telegram will confirm `{"ok":true,"result":true}`.
 
 ---
 
 ## Multi-user (optional)
 
-By default, one user is configured via `AUTH_USERNAME` / `AUTH_PASSWORD_HASH`. To add more users, use `AUTH_USERS` (overrides the single-user env vars):
+By default, one user is configured via `AUTH_USERNAME` / `AUTH_PASSWORD_HASH`. To add more users, set `AUTH_USERS` (overrides the single-user vars):
 
 ```env
 AUTH_USERS=[{"u":"alice","h":"$argon2id$..."},{"u":"bob","h":"$argon2id$..."}]
 ```
 
-Generate each hash with:
+Generate each hash:
 ```bash
 bun scripts/hash-password.js 'password-for-alice'
-bun scripts/hash-password.js 'password-for-bob'
 ```
 
-> In a `.env` file, if a hash contains `$` characters, wrap the value in **single quotes** or escape each `$` as `\$`. In the Vercel dashboard, paste as-is (no escaping needed).
+> In a `.env` file, wrap values containing `$` in **single quotes** or escape each `$` as `\$`. In Vercel dashboard, paste as-is.
 
 ---
 
 ## Categories
 
-Fixed categories used by both the bot and the manual form:
+Fixed set used by both the bot parser and the manual form:
 
 `Makanan` · `Belanja` · `Transport` · `Tagihan` · `Kesehatan` · `Hiburan` · `Lainnya`
 

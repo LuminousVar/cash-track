@@ -7,9 +7,30 @@
 	let { children, data } = $props();
 
 	const bare = $derived(page.url.pathname === '/login');
+
+	/** @type {Record<string, string>} */
+	const PAGE_TITLES = {
+		'/': 'Dashboard',
+		'/pengeluaran': 'Pengeluaran',
+		'/kategori': 'Kategori',
+		'/laporan': 'Laporan',
+		'/anggaran': 'Anggaran',
+		'/riwayat': 'Riwayat',
+		'/notifikasi': 'Notifikasi',
+		'/pengaturan': 'Pengaturan',
+		'/bantuan': 'Bantuan',
+		'/login': 'Masuk'
+	};
+
+	const pageTitle = $derived(
+		PAGE_TITLES[page.url.pathname] ?? page.url.pathname.split('/').filter(Boolean).at(-1) ?? 'cashtrack'
+	);
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<svelte:head>
+	<link rel="icon" href={favicon} />
+	<title>{pageTitle === 'Dashboard' ? 'cashtrack' : `${pageTitle} — cashtrack`}</title>
+</svelte:head>
 
 {#if bare}
 	{@render children()}
