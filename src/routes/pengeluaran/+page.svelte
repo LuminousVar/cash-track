@@ -26,7 +26,6 @@
 </script>
 
 <PageHeader title="Pengeluaran" subtitle="Semua transaksi yang tercatat.">
-	{#if data.demo}<span class="rounded-full bg-warn-bg px-2.5 py-1 text-[11px] font-semibold text-warn">Mode demo</span>{/if}
 	<button onclick={() => (showAdd = true)} class="flex items-center gap-2 rounded-xl bg-lime-500 px-4 py-2.5 text-sm font-bold text-forest-900 shadow-sm transition hover:bg-lime-400">
 		<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
 		Tambah Pengeluaran

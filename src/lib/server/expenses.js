@@ -58,7 +58,7 @@ function computeDashboard(expenses) {
 	const now = new Date();
 	const year = now.getFullYear();
 	const month = now.getMonth();
-	const flow = MONTHS.map((m) => ({ month: m, amount: 0 }));
+	const flow = MONTHS.map((m) => ({ month: m, amount: 0, telegram: 0 }));
 	/** @type {Record<string, number>} */
 	const catThisMonth = {};
 	let totalAllTime = 0,
@@ -71,7 +71,10 @@ function computeDashboard(expenses) {
 		totalAllTime += amt;
 		const d = new Date(e.date);
 		if (Number.isNaN(d.getTime())) continue;
-		if (d.getFullYear() === year) flow[d.getMonth()].amount += amt;
+		if (d.getFullYear() === year) {
+			flow[d.getMonth()].amount += amt;
+			if (e.source === 'telegram') flow[d.getMonth()].telegram += amt;
+		}
 		if (d.getFullYear() === year && d.getMonth() === month) {
 			count++;
 			catThisMonth[e.category] = (catThisMonth[e.category] || 0) + amt;
@@ -213,12 +216,18 @@ const DEMO_CATEGORY_TOTALS = [
 const DEMO = {
 	transactions: DEMO_TX,
 	monthlyFlow: [
-		{ month: 'Jan', amount: 4_200_000 }, { month: 'Feb', amount: 3_850_000 },
-		{ month: 'Mar', amount: 5_100_000 }, { month: 'Apr', amount: 4_600_000 },
-		{ month: 'Mei', amount: 6_200_000 }, { month: 'Jun', amount: 5_400_000 },
-		{ month: 'Jul', amount: 7_125_000 }, { month: 'Agu', amount: 6_800_000 },
-		{ month: 'Sep', amount: 5_900_000 }, { month: 'Okt', amount: 6_500_000 },
-		{ month: 'Nov', amount: 7_000_000 }, { month: 'Des', amount: 8_200_000 }
+		{ month: 'Jan', amount: 4_200_000, telegram: 200_000 },
+		{ month: 'Feb', amount: 3_850_000, telegram: 350_000 },
+		{ month: 'Mar', amount: 5_100_000, telegram: 700_000 },
+		{ month: 'Apr', amount: 4_600_000, telegram: 1_000_000 },
+		{ month: 'Mei', amount: 6_200_000, telegram: 1_900_000 },
+		{ month: 'Jun', amount: 5_400_000, telegram: 2_300_000 },
+		{ month: 'Jul', amount: 7_125_000, telegram: 3_400_000 },
+		{ month: 'Agu', amount: 6_800_000, telegram: 3_700_000 },
+		{ month: 'Sep', amount: 5_900_000, telegram: 3_600_000 },
+		{ month: 'Okt', amount: 6_500_000, telegram: 4_400_000 },
+		{ month: 'Nov', amount: 7_000_000, telegram: 5_200_000 },
+		{ month: 'Des', amount: 8_200_000, telegram: 6_400_000 }
 	],
 	topCategories: [
 		{ name: 'Makanan', amount: 2_850_000, tone: 'forest' },

@@ -6,7 +6,6 @@
 
 	let { children, data } = $props();
 
-	// Halaman login berdiri sendiri tanpa shell sidebar.
 	const bare = $derived(page.url.pathname === '/login');
 </script>
 

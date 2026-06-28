@@ -8,9 +8,7 @@
 	const top = $derived(data.report.categoryTotals[0]);
 </script>
 
-<PageHeader title="Kategori" subtitle="Pengeluaran berdasarkan kategori.">
-	{#if data.report.demo}<span class="rounded-full bg-warn-bg px-2.5 py-1 text-[11px] font-semibold text-warn">Mode demo</span>{/if}
-</PageHeader>
+<PageHeader title="Kategori" subtitle="Pengeluaran berdasarkan kategori." />
 
 <!-- Sorotan -->
 <section class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-3">

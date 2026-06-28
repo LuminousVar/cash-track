@@ -25,6 +25,7 @@
 	--color-emerald-500: #2fb888;
 
 	--color-active: #ecf4e5;
+	--color-active-fg: #2e5c45;
 
 	--color-success: #2e7d46;
 	--color-success-bg: #e7f5ec;
@@ -75,6 +76,7 @@
 	--color-ink-mute: #4a6555;
 
 	--color-active: #1c3225;
+	--color-active-fg: #ffffff;
 
 	--color-success: #56c87a;
 	--color-success-bg: #0f2018;

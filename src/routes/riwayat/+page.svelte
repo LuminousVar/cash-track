@@ -15,9 +15,7 @@
 	);
 </script>
 
-<PageHeader title="Riwayat" subtitle="Aktivitas pencatatan terbaru.">
-	{#if data.demo}<span class="rounded-full bg-warn-bg px-2.5 py-1 text-[11px] font-semibold text-warn">Mode demo</span>{/if}
-</PageHeader>
+<PageHeader title="Riwayat" subtitle="Aktivitas pencatatan terbaru." />
 
 <section class="mt-6 space-y-6">
 	{#if groups.length === 0}

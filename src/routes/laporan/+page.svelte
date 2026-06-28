@@ -12,9 +12,7 @@
 	const maxCat = $derived(Math.max(1, ...data.report.categoryTotals.map((c) => c.amount)));
 </script>
 
-<PageHeader title="Laporan" subtitle="Ringkasan pengeluaran sepanjang tahun.">
-	{#if data.report.demo}<span class="rounded-full bg-warn-bg px-2.5 py-1 text-[11px] font-semibold text-warn">Mode demo</span>{/if}
-</PageHeader>
+<PageHeader title="Laporan" subtitle="Ringkasan pengeluaran sepanjang tahun." />
 
 <!-- Statistik -->
 <section class="mt-6 grid grid-cols-2 gap-5 lg:grid-cols-4">
