@@ -1,7 +1,8 @@
 <script>
-	import { CATEGORIES, PAYMENT_METHODS, formatRp } from '$lib/data/mock.js';
+	import { enhance } from '$app/forms';
+	import { CATEGORIES, PAYMENT_METHODS, formatRp } from '$lib/format.js';
 
-	let { open = false, onclose, onsave } = $props();
+	let { open = false, demo = false, onclose } = $props();
 
 	const today = () => new Date().toISOString().slice(0, 10);
 
@@ -11,6 +12,7 @@
 	let merchant = $state('');
 	let notes = $state('');
 	let items = $state([{ name: '', qty: 1, price: 0 }]);
+	let submitting = $state(false);
 
 	let total = $derived(items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0));
 
@@ -22,6 +24,7 @@
 	function addItem() {
 		items = [...items, { name: '', qty: 1, price: 0 }];
 	}
+	/** @param {number} idx */
 	function removeItem(idx) {
 		if (items.length > 1) items = items.filter((_, i) => i !== idx);
 	}
@@ -32,11 +35,20 @@
 		notes = '';
 		items = [{ name: '', qty: 1, price: 0 }];
 	}
-	function submit(e) {
-		e.preventDefault();
-		// TODO: persist ke Google Sheet via form action (appendRow, source='manual').
-		onsave?.({ merchant: merchant || 'Tanpa nama', date, category, method, total, source: 'manual' });
-		reset();
+
+	// Inject rincian barang (JSON) ke formData, lalu refresh data setelah submit.
+	/** @type {import('@sveltejs/kit').SubmitFunction} */
+	function submit({ formData }) {
+		submitting = true;
+		formData.set('items', JSON.stringify(items));
+		return async ({ result, update }) => {
+			submitting = false;
+			if (result.type === 'success') {
+				reset();
+				onclose?.();
+			}
+			await update();
+		};
 	}
 </script>
 
@@ -44,7 +56,7 @@
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<button class="absolute inset-0 bg-forest-900/30 backdrop-blur-[2px]" aria-label="Tutup" onclick={onclose}></button>
 
-		<form onsubmit={submit} class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-surface p-6 shadow-xl">
+		<form method="POST" action="/?/add" use:enhance={submit} class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-surface p-6 shadow-xl">
 			<div class="flex items-start justify-between">
 				<div>
 					<h2 class="text-lg font-bold">Tambah Pengeluaran</h2>
@@ -53,26 +65,30 @@
 				<button type="button" onclick={onclose} class="grid size-8 place-items-center rounded-lg text-ink-mute hover:bg-canvas hover:text-ink" aria-label="Tutup">✕</button>
 			</div>
 
+			{#if demo}
+				<p class="mt-3 rounded-lg bg-warn-bg px-3 py-2 text-xs font-medium text-warn">Mode demo: data belum tersimpan ke Google Sheet (atur kredensial di .env).</p>
+			{/if}
+
 			<div class="mt-5 grid grid-cols-2 gap-3">
 				<label class="flex flex-col gap-1.5">
 					<span class="text-xs font-semibold text-ink-soft">Tanggal</span>
-					<input type="date" bind:value={date} class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
+					<input type="date" name="date" bind:value={date} class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
 				</label>
 				<label class="flex flex-col gap-1.5">
 					<span class="text-xs font-semibold text-ink-soft">Kategori</span>
-					<select bind:value={category} class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300">
+					<select name="category" bind:value={category} class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300">
 						{#each CATEGORIES as c}<option>{c}</option>{/each}
 					</select>
 				</label>
 				<label class="flex flex-col gap-1.5">
 					<span class="text-xs font-semibold text-ink-soft">Metode bayar</span>
-					<select bind:value={method} class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300">
+					<select name="method" bind:value={method} class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300">
 						{#each PAYMENT_METHODS as m}<option>{m}</option>{/each}
 					</select>
 				</label>
 				<label class="flex flex-col gap-1.5">
 					<span class="text-xs font-semibold text-ink-soft">Keterangan / Tempat</span>
-					<input bind:value={merchant} placeholder="mis. Parkir motor" class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
+					<input name="merchant" bind:value={merchant} placeholder="mis. Parkir motor" class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
 				</label>
 			</div>
 
@@ -96,7 +112,7 @@
 
 			<label class="mt-4 flex flex-col gap-1.5">
 				<span class="text-xs font-semibold text-ink-soft">Catatan</span>
-				<textarea bind:value={notes} rows="2" placeholder="opsional" class="resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300"></textarea>
+				<textarea name="notes" bind:value={notes} rows="2" placeholder="opsional" class="resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300"></textarea>
 			</label>
 
 			<!-- Total + aksi -->
@@ -106,7 +122,9 @@
 			</div>
 			<div class="mt-4 flex justify-end gap-2">
 				<button type="button" onclick={onclose} class="rounded-lg px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-canvas">Batal</button>
-				<button type="submit" class="rounded-lg bg-lime-500 px-5 py-2 text-sm font-bold text-forest-900 transition hover:bg-lime-400">Simpan</button>
+				<button type="submit" disabled={submitting || total <= 0} class="rounded-lg bg-lime-500 px-5 py-2 text-sm font-bold text-forest-900 transition hover:bg-lime-400 disabled:opacity-50">
+					{submitting ? 'Menyimpan…' : 'Simpan'}
+				</button>
 			</div>
 		</form>
 	</div>
