@@ -47,7 +47,7 @@ export async function parseReceipt(text) {
 		method: 'POST',
 		headers: { 'content-type': 'application/json', authorization: `Bearer ${env.DEEPSEEK_API_KEY}` },
 		body: JSON.stringify({
-			model: 'deepseek-chat',
+			model: 'deepseek-v4',
 			response_format: { type: 'json_object' },
 			temperature: 0.1,
 			messages: [

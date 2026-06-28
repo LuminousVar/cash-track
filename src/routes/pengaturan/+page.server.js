@@ -28,7 +28,7 @@ export function load() {
 		deepseek: {
 			configured: !!get('DEEPSEEK_API_KEY'),
 			keyMasked: mask(get('DEEPSEEK_API_KEY')),
-			model: 'deepseek-chat',
+			model: 'deepseek-v4',
 		},
 		google: {
 			configured: !!get('GOOGLE_SERVICE_ACCOUNT') && !!get('GOOGLE_SHEET_ID'),

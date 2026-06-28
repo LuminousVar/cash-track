@@ -21,6 +21,31 @@
 		if (open) date = today();
 	});
 
+	/** Format angka dengan pemisah ribuan koma: 20000 → "20,000" @param {number} n @returns {string} */
+	function fmtNum(n) {
+		return n ? n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '';
+	}
+	/** Ambil angka bersih dari string berformat. @param {string} s @returns {number} */
+	function parseNum(s) {
+		return Number(s.replace(/[^\d]/g, '')) || 0;
+	}
+	/**
+	 * Handler input harga: format koma otomatis, perbarui state.
+	 * @param {Event & { currentTarget: HTMLInputElement }} e
+	 * @param {number} idx
+	 */
+	function onPriceInput(e, idx) {
+		const raw = parseNum(e.currentTarget.value);
+		items[idx] = { ...items[idx], price: raw };
+		// Simpan posisi kursor sebelum format ulang
+		const pos = e.currentTarget.selectionStart ?? 0;
+		const oldLen = e.currentTarget.value.length;
+		e.currentTarget.value = fmtNum(raw);
+		// Sesuaikan kursor agar tidak lompat aneh
+		const diff = e.currentTarget.value.length - oldLen;
+		e.currentTarget.setSelectionRange(pos + diff, pos + diff);
+	}
+
 	function addItem() {
 		items = [...items, { name: '', qty: 1, price: 0 }];
 	}
@@ -76,15 +101,21 @@
 				</label>
 				<label class="flex flex-col gap-1.5">
 					<span class="text-xs font-semibold text-ink-soft">Kategori</span>
-					<select name="category" bind:value={category} class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300">
-						{#each CATEGORIES as c}<option>{c}</option>{/each}
-					</select>
+					<div class="relative">
+						<select name="category" bind:value={category} class="w-full appearance-none rounded-lg border border-line bg-canvas py-2 pl-3 pr-8 text-sm text-ink outline-none transition focus:border-lime-400 focus:ring-2 focus:ring-lime-300">
+							{#each CATEGORIES as c}<option>{c}</option>{/each}
+						</select>
+						<svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-mute" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+					</div>
 				</label>
 				<label class="flex flex-col gap-1.5">
 					<span class="text-xs font-semibold text-ink-soft">Metode bayar</span>
-					<select name="method" bind:value={method} class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300">
-						{#each PAYMENT_METHODS as m}<option>{m}</option>{/each}
-					</select>
+					<div class="relative">
+						<select name="method" bind:value={method} class="w-full appearance-none rounded-lg border border-line bg-canvas py-2 pl-3 pr-8 text-sm text-ink outline-none transition focus:border-lime-400 focus:ring-2 focus:ring-lime-300">
+							{#each PAYMENT_METHODS as m}<option>{m}</option>{/each}
+						</select>
+						<svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-mute" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+					</div>
 				</label>
 				<label class="flex flex-col gap-1.5">
 					<span class="text-xs font-semibold text-ink-soft">Keterangan / Tempat</span>
@@ -103,7 +134,14 @@
 						<div class="flex items-center gap-2">
 							<input bind:value={item.name} placeholder="Nama" class="flex-1 rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
 							<input type="number" min="1" bind:value={item.qty} class="num w-14 rounded-lg border border-line bg-canvas px-2 py-2 text-center text-sm outline-none focus:ring-2 focus:ring-lime-300" />
-							<input type="number" min="0" bind:value={item.price} placeholder="Harga" class="num w-28 rounded-lg border border-line bg-canvas px-3 py-2 text-right text-sm outline-none focus:ring-2 focus:ring-lime-300" />
+							<input
+								type="text"
+								inputmode="numeric"
+								value={fmtNum(item.price)}
+								placeholder="Harga"
+								oninput={(e) => onPriceInput(e, i)}
+								class="num w-28 rounded-lg border border-line bg-canvas px-3 py-2 text-right text-sm outline-none focus:ring-2 focus:ring-lime-300"
+							/>
 							<button type="button" onclick={() => removeItem(i)} class="grid size-8 shrink-0 place-items-center rounded-lg text-ink-mute hover:bg-canvas hover:text-ink" aria-label="Hapus baris">✕</button>
 						</div>
 					{/each}

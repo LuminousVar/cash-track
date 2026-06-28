@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import { getDashboardData, addExpense } from '$lib/server/expenses.js';
+import { checkBudgetAlert } from '$lib/server/budget.js';
 
 export async function load({ locals }) {
 	const data = await getDashboardData();
@@ -30,6 +31,7 @@ export const actions = {
 		}
 
 		const { persisted } = await addExpense({ date, category, method, merchant, notes, items, total, user: locals.user || 'manual' });
+		if (persisted) void checkBudgetAlert();
 		return { success: true, persisted };
 	}
 };

@@ -12,6 +12,7 @@
 		tag: '<path d="M3 7v5l9 9 7-7-9-9H5a2 2 0 0 0-2 2Z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
 		chart: '<path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7" rx="1"/><rect x="12" y="6" width="3" height="11" rx="1"/><rect x="17" y="13" width="3" height="4" rx="1"/>',
 		history: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+		wallet: '<rect x="1" y="5" width="22" height="16" rx="2"/><path d="M1 10h22"/><circle cx="16" cy="15" r="1.5"/>',
 		bell: '<path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
 		settings:
 			'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"/>',
@@ -26,6 +27,7 @@
 		{ label: 'Pengeluaran', icon: ic.receipt, href: '/pengeluaran' },
 		{ label: 'Kategori', icon: ic.tag, href: '/kategori' },
 		{ label: 'Laporan', icon: ic.chart, href: '/laporan' },
+		{ label: 'Anggaran', icon: ic.wallet, href: '/anggaran' },
 		{ label: 'Riwayat', icon: ic.history, href: '/riwayat' },
 		{ label: 'Notifikasi', icon: ic.bell, href: '/notifikasi' }
 	];

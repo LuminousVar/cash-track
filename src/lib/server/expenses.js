@@ -2,6 +2,7 @@
 // Saat env Google belum diisi (dev), pakai DEMO agar dashboard tetap tampil penuh.
 import { env } from '$env/dynamic/private';
 import { readRows, appendRow, isConfigured, SHEET_TAB } from './google.js';
+import { readConfig } from './config.js';
 import { MONTHS, CATEGORIES } from '$lib/format.js';
 
 export { isConfigured };
@@ -13,7 +14,8 @@ export const HEADER = [
 ];
 
 function monthlyBudget() {
-	return Number(env.MONTHLY_BUDGET) || 9_500_000;
+	const cfg = readConfig();
+	return Number(cfg.MONTHLY_BUDGET || env.MONTHLY_BUDGET) || 9_500_000;
 }
 
 /**

@@ -199,7 +199,7 @@
 	<article class="rounded-card bg-surface p-5">
 		<div class="flex items-center justify-between">
 			<span class="text-sm font-semibold">Anggaran Bulanan</span>
-			<a href="/pengaturan" class="text-xs font-semibold text-forest-600">Atur budget →</a>
+			<a href="/anggaran" class="text-xs font-semibold text-forest-600">Atur budget →</a>
 		</div>
 		<p class="mt-4 text-5xl font-extrabold tracking-tight">{data.summary.budgetPct}<span class="text-2xl text-ink-mute">%</span></p>
 		<p class="mt-2 max-w-[15rem] text-sm leading-relaxed text-ink-soft">

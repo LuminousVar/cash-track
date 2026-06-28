@@ -4,6 +4,7 @@ import { getFile, downloadFileBase64, sendMessage } from '$lib/server/telegram.j
 import { visionOcr } from '$lib/server/google.js';
 import { parseReceipt } from '$lib/server/deepseek.js';
 import { addReceipt } from '$lib/server/expenses.js';
+import { checkBudgetAlert } from '$lib/server/budget.js';
 import { formatRp } from '$lib/format.js';
 
 // Pipeline OCR+LLM bisa makan waktu — beri ruang di Vercel.
@@ -61,6 +62,7 @@ export async function POST({ request }) {
 
 		const parsed = await parseReceipt(rawText);
 		const { persisted } = await addReceipt(parsed, { fileId, rawText, user: msg.from?.id });
+		if (persisted) void checkBudgetAlert();
 
 		const lines = [
 			'✅ Tercatat!',
