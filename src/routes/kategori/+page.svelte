@@ -33,18 +33,24 @@
 	{#each data.report.categoryTotals as c}
 		{@const tone = CATEGORY_TONE[c.name] ?? CATEGORY_TONE.Lainnya}
 		{@const pct = Math.round((c.amount / totalAll) * 100)}
-		<article class="rounded-card bg-surface p-5">
+		<a
+			href="/pengeluaran?category={encodeURIComponent(c.name)}"
+			class="group block rounded-card bg-surface p-5 transition hover:-translate-y-0.5 hover:ring-1 hover:ring-line"
+		>
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-3">
 					<span class="grid size-9 place-items-center rounded-xl text-sm font-bold" style="background: {tone.bg}; color: {tone.fg};">{c.name[0]}</span>
 					<span class="font-semibold">{c.name}</span>
 				</div>
-				<span class="num text-sm font-semibold text-ink-soft">{pct}%</span>
+				<span class="flex items-center gap-1 text-sm font-semibold text-ink-soft">
+					<span class="num">{pct}%</span>
+					<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-ink-mute transition group-hover:translate-x-0.5 group-hover:text-forest-600"><path d="m9 18 6-6-6-6" /></svg>
+				</span>
 			</div>
 			<p class="num mt-4 text-2xl font-extrabold tracking-tight">{formatRp(c.amount)}</p>
 			<div class="mt-3 h-2 overflow-hidden rounded-full bg-canvas">
 				<div class="h-full rounded-full" style="width: {pct}%; background: {tone.fg};"></div>
 			</div>
-		</article>
+		</a>
 	{/each}
 </section>

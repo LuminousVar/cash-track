@@ -51,6 +51,17 @@
 	.num {
 		font-variant-numeric: tabular-nums;
 	}
+
+	/* Tailwind v4 tak lagi memberi cursor pointer ke tombol — kembalikan. */
+	button:not(:disabled),
+	[role='button']:not(:disabled),
+	label:has(> input[type='checkbox']),
+	summary {
+		cursor: pointer;
+	}
+	button:disabled {
+		cursor: not-allowed;
+	}
 }
 
 /* scrollbar halus */

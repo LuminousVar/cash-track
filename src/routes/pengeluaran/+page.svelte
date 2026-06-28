@@ -1,13 +1,17 @@
 <script>
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import AddExpenseModal from '$lib/components/AddExpenseModal.svelte';
+	import { page } from '$app/state';
 	import { formatRp, formatDate, CATEGORY_TONE, CATEGORIES } from '$lib/format.js';
 
 	let { data } = $props();
 
+	// Pre-filter kategori dari query (?category=…), mis. saat klik kartu di /kategori.
+	const initCat = page.url.searchParams.get('category');
+
 	let showAdd = $state(false);
 	let q = $state('');
-	let cat = $state('Semua');
+	let cat = $state(initCat && CATEGORIES.includes(initCat) ? initCat : 'Semua');
 	let src = $state('Semua');
 
 	const filtered = $derived(
