@@ -1,17 +1,45 @@
 // Lapisan data pengeluaran: baca/tulis Google Sheet + hitung ringkasan dashboard.
 // Saat env Google belum diisi (dev), pakai DEMO agar dashboard tetap tampil penuh.
 import { env } from '$env/dynamic/private';
-import { readRows, appendRow, isConfigured, SHEET_TAB } from './google.js';
+import { readRows, appendRow, updateRow, deleteRow, isConfigured, SHEET_TAB } from './google.js';
 import { readConfig } from './config.js';
 import { MONTHS, CATEGORIES } from '$lib/format.js';
 
 export { isConfigured };
 
-// Urutan kolom header di Sheet (13 kolom). Lihat plan.
+// Urutan kolom header di Sheet (14 kolom). `id` sengaja ditaruh paling belakang
+// supaya sheet lama yang masih 13 kolom tetap terbaca — baris lama id-nya kosong
+// sampai di-backfill (lihat scripts/backfill-ids.js).
 export const HEADER = [
 	'timestamp', 'date', 'merchant', 'total', 'currency', 'category',
-	'payment_method', 'items', 'photo_url', 'raw_text', 'source', 'user', 'notes'
+	'payment_method', 'items', 'photo_url', 'raw_text', 'source', 'user', 'notes', 'id'
 ];
+
+const ID_COL = HEADER.indexOf('id');
+const USER_COL = HEADER.indexOf('user');
+
+/** ID pendek — cukup unik untuk skala personal, cukup ringkas untuk pesan Telegram. */
+const newId = () => crypto.randomUUID().slice(0, 8);
+
+// ── Cache baris sheet ────────────────────────────────────────────────────────
+// Per-instance & berumur pendek. Di Vercel ikut hilang saat instance daur ulang;
+// itu tidak masalah karena tak ada state yang bergantung padanya.
+const CACHE_TTL = 60_000;
+
+/** @type {{ rows: string[][], at: number } | null} */
+let _cache = null;
+
+async function cachedRows() {
+	if (_cache && Date.now() - _cache.at < CACHE_TTL) return _cache.rows;
+	const rows = await readRows();
+	_cache = { rows, at: Date.now() };
+	return rows;
+}
+
+/** Buang cache. WAJIB dipanggil setiap kali sheet berubah. */
+function invalidate() {
+	_cache = null;
+}
 
 function monthlyBudget() {
 	const cfg = readConfig();
@@ -19,24 +47,44 @@ function monthlyBudget() {
 }
 
 /**
- * @typedef {{ merchant: string, date: string, category: string, method: string, total: number, source: 'telegram' | 'manual', notes?: string }} Expense
+ * @typedef {{ name: string, qty: number, price: number }} Item
+ * @typedef {{ merchant: string, date: string, category: string, method: string, total: number, source: 'telegram' | 'manual', notes?: string, id?: string, rowNumber?: number, items?: Item[] }} Expense
  */
+
+/**
+ * Parse kolom `items` (JSON string) jadi array. Aman terhadap isi rusak.
+ * @param {string} raw
+ * @returns {Item[]}
+ */
+function parseItems(raw) {
+	try {
+		const v = JSON.parse(raw || '[]');
+		if (!Array.isArray(v)) return [];
+		return v.map((i) => ({ name: String(i?.name ?? ''), qty: Number(i?.qty) || 0, price: Number(i?.price) || 0 }));
+	} catch {
+		return [];
+	}
+}
 
 /**
  * Baris sheet → objek pengeluaran yang dipakai UI.
  * @param {string[]} row
+ * @param {number} [rowNumber]  nomor baris di sheet (1-based), untuk update/delete
  * @returns {Expense}
  */
-function rowToExpense(row) {
+function rowToExpense(row, rowNumber = 0) {
 	/** @type {Record<string, string>} */
 	const o = {};
 	HEADER.forEach((h, i) => (o[h] = row[i] ?? ''));
 	return {
+		id: o.id,
+		rowNumber,
 		merchant: o.merchant,
 		date: o.date,
 		category: o.category,
 		method: o.payment_method,
 		total: Number(o.total) || 0,
+		items: parseItems(o.items),
 		source: o.source === 'manual' ? 'manual' : 'telegram',
 		notes: o.notes
 	};
@@ -44,11 +92,13 @@ function rowToExpense(row) {
 
 /** Ambil semua pengeluaran (terbaru dulu). */
 export async function listExpenses() {
-	const rows = await readRows();
+	const rows = await cachedRows();
 	if (rows.length <= 1) return [];
+	// Nomor baris ditangkap SEBELUM sort — setelah diurutkan posisi array tidak
+	// lagi mencerminkan posisi di sheet. Baris 1 = header, jadi offset +2.
 	return rows
 		.slice(1)
-		.map(rowToExpense)
+		.map((row, i) => rowToExpense(row, i + 2))
 		.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
@@ -146,6 +196,7 @@ export async function getDashboardData() {
  */
 export async function addExpense(input) {
 	if (!isConfigured()) return { persisted: false };
+	const id = newId();
 	const row = [
 		new Date().toISOString(), // timestamp
 		input.date, // date
@@ -159,10 +210,12 @@ export async function addExpense(input) {
 		'', // raw_text
 		'manual', // source
 		input.user || 'manual', // user
-		input.notes || '' // notes
+		input.notes || '', // notes
+		id // id
 	];
 	await appendRow(row, SHEET_TAB);
-	return { persisted: true };
+	invalidate();
+	return { persisted: true, id };
 }
 
 /**
@@ -172,6 +225,7 @@ export async function addExpense(input) {
  */
 export async function addReceipt(parsed, { fileId = '', rawText = '', user = '' }) {
 	if (!isConfigured()) return { persisted: false };
+	const id = newId();
 	const row = [
 		new Date().toISOString(), // timestamp
 		parsed.date, // date
@@ -185,10 +239,100 @@ export async function addReceipt(parsed, { fileId = '', rawText = '', user = '' 
 		rawText, // raw_text (OCR)
 		'telegram', // source
 		String(user), // user
-		'' // notes
+		'', // notes
+		id // id
 	];
 	await appendRow(row, SHEET_TAB);
+	invalidate();
+	return { persisted: true, id };
+}
+
+// ── Ubah & hapus ────────────────────────────────────────────────────────────
+
+/**
+ * Cari baris berdasarkan id. Sengaja baca langsung (bukan cache) supaya nomor
+ * baris akurat — webhook Telegram bisa menyisipkan baris kapan saja antara
+ * halaman dirender dan form dikirim.
+ * @param {string} id
+ * @returns {Promise<{ row: string[], rowNumber: number } | null>}
+ */
+async function findById(id) {
+	if (!id) return null;
+	const rows = await readRows();
+	_cache = { rows, at: Date.now() };
+	for (let i = 1; i < rows.length; i++) {
+		if ((rows[i][ID_COL] ?? '') === id) return { row: rows[i], rowNumber: i + 1 };
+	}
+	return null;
+}
+
+/**
+ * Ubah sebagian field satu pengeluaran. Field yang tidak boleh diubah
+ * (timestamp, source, raw_text, photo_url, user, id) dipertahankan apa adanya.
+ * @param {string} id
+ * @param {{ date?: string, merchant?: string, total?: number, category?: string, method?: string, notes?: string, items?: Item[] }} patch
+ */
+export async function updateExpense(id, patch) {
+	if (!isConfigured()) return { persisted: false };
+	const found = await findById(id);
+	if (!found) return { persisted: false, notFound: true };
+
+	/** @type {Record<string, string>} */
+	const o = {};
+	HEADER.forEach((h, i) => (o[h] = found.row[i] ?? ''));
+
+	const items = patch.items ?? parseItems(o.items);
+	const row = [
+		o.timestamp,
+		patch.date ?? o.date,
+		patch.merchant ?? o.merchant,
+		String(Math.round(Number(patch.total ?? o.total) || 0)),
+		o.currency || 'IDR',
+		patch.category ?? o.category,
+		patch.method ?? o.payment_method,
+		JSON.stringify(items),
+		o.photo_url,
+		o.raw_text,
+		o.source,
+		o.user,
+		patch.notes ?? o.notes,
+		id
+	];
+
+	await updateRow(found.rowNumber, row, SHEET_TAB);
+	invalidate();
 	return { persisted: true };
+}
+
+/**
+ * Hapus satu pengeluaran. Mengembalikan data yang dihapus untuk pesan konfirmasi.
+ * @param {string} id
+ */
+export async function deleteExpense(id) {
+	if (!isConfigured()) return { persisted: false };
+	const found = await findById(id);
+	if (!found) return { persisted: false, notFound: true };
+
+	const expense = rowToExpense(found.row, found.rowNumber);
+	await deleteRow(found.rowNumber, SHEET_TAB);
+	invalidate();
+	return { persisted: true, expense };
+}
+
+/**
+ * Pengeluaran terakhir yang masuk lewat Telegram dari user tertentu.
+ * Dipakai `/hapus` tanpa argumen.
+ * @param {string | number | undefined} user
+ */
+export async function lastTelegramExpense(user) {
+	if (!isConfigured() || user === undefined) return null;
+	const rows = await readRows();
+	_cache = { rows, at: Date.now() };
+	for (let i = rows.length - 1; i >= 1; i--) {
+		const e = rowToExpense(rows[i], i + 1);
+		if (e.source === 'telegram' && String(rows[i][USER_COL] ?? '') === String(user) && e.id) return e;
+	}
+	return null;
 }
 
 // ── Data contoh (dev/preview) ───────────────────────────────────────────────

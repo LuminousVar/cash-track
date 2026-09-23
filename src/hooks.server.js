@@ -1,9 +1,11 @@
 import { redirect } from '@sveltejs/kit';
 import { SESSION_COOKIE, readSessionToken, authConfigured } from '$lib/server/auth.js';
 
-// Route yang boleh diakses tanpa login.
+// Route yang boleh diakses tanpa login. Webhook Telegram punya autentikasi
+// sendiri (x-telegram-bot-api-secret-token), jadi dia satu-satunya /api/* yang
+// terbuka — route /api/* lain terlindungi secara default.
 /** @param {string} path */
-const isPublic = (path) => path === '/login' || path.startsWith('/api/');
+const isPublic = (path) => path === '/login' || path === '/api/telegram';
 
 /** @type {import('@sveltejs/kit').Handle} */
 export async function handle({ event, resolve }) {

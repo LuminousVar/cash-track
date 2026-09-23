@@ -7,6 +7,8 @@
 	let { data } = $props();
 
 	let showAdd = $state(false);
+	/** @type {import('$lib/server/expenses.js').Expense | null} */
+	let editing = $state(null);
 
 	const insight = $derived(buildInsight(data));
 	/** @type {Record<'aman' | 'waspada' | 'lewat', { ring: string, chip: string, icon: string }>} */
@@ -264,7 +266,8 @@
 						<th class="pb-3 font-semibold">Kategori</th>
 						<th class="pb-3 font-semibold">Metode</th>
 						<th class="pb-3 text-right font-semibold">Jumlah</th>
-						<th class="pb-3 pr-1 text-center font-semibold">Sumber</th>
+						<th class="pb-3 text-center font-semibold">Sumber</th>
+						<th class="pb-3 pr-1 text-right font-semibold"></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -283,10 +286,17 @@
 							</td>
 							<td class="py-3 text-ink-soft">{t.method}</td>
 							<td class="num py-3 text-right font-bold">{formatRp(t.total)}</td>
-							<td class="py-3 pr-1 text-center">
+							<td class="py-3 text-center">
 								<span class="rounded-full px-2.5 py-1 text-xs font-semibold {t.source === 'telegram' ? 'bg-success-bg text-success' : 'bg-lime-100 text-lime-600'}">
 									{t.source === 'telegram' ? 'Telegram' : 'Manual'}
 								</span>
+							</td>
+							<td class="py-3 pr-1 text-right">
+								{#if !data.demo && t.id}
+									<button onclick={() => (editing = t)} class="grid size-8 place-items-center rounded-lg text-ink-mute transition hover:bg-canvas hover:text-forest-600" aria-label="Ubah" title="Ubah">
+										<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+									</button>
+								{/if}
 							</td>
 						</tr>
 					{/each}
@@ -297,3 +307,4 @@
 </section>
 
 <AddExpenseModal open={showAdd} demo={data.demo} onclose={() => (showAdd = false)} />
+<AddExpenseModal open={!!editing} demo={data.demo} mode="edit" expense={editing} onclose={() => (editing = null)} />

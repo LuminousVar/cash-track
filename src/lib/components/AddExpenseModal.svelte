@@ -1,8 +1,18 @@
 <script>
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import { CATEGORIES, PAYMENT_METHODS, formatRp } from '$lib/format.js';
 
-	let { open = false, demo = false, onclose } = $props();
+	/**
+	 * @type {{
+	 *   open?: boolean,
+	 *   demo?: boolean,
+	 *   mode?: 'add' | 'edit',
+	 *   expense?: import('$lib/server/expenses.js').Expense | null,
+	 *   onclose?: () => void
+	 * }}
+	 */
+	let { open = false, demo = false, mode = 'add', expense = null, onclose } = $props();
 
 	const today = () => new Date().toISOString().slice(0, 10);
 
@@ -13,12 +23,32 @@
 	let notes = $state('');
 	let items = $state([{ name: '', qty: 1, price: 0 }]);
 	let submitting = $state(false);
+	let error = $state('');
+
+	const isEdit = $derived(mode === 'edit');
+	// Action update dipusatkan di /pengeluaran; halaman lain memposting ke sana.
+	const formAction = $derived(isEdit ? '/pengeluaran?/update' : '/?/add');
 
 	let total = $derived(items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0));
 
-	// Saat dibuka, default tanggal = sekarang (boleh diedit). Lihat plan.
+	// Saat dibuka: mode add → tanggal hari ini; mode edit → isi dari transaksi.
 	$effect(() => {
-		if (open) date = today();
+		if (!open) return;
+		error = '';
+		if (!isEdit || !expense) {
+			date = today();
+			return;
+		}
+		date = expense.date || today();
+		category = CATEGORIES.includes(expense.category) ? expense.category : 'Lainnya';
+		method = PAYMENT_METHODS.includes(expense.method) ? expense.method : '';
+		merchant = expense.merchant || '';
+		notes = expense.notes || '';
+		// Struk dari Telegram kadang tanpa rincian barang — buat satu baris dari
+		// total supaya nominalnya tidak hilang saat diedit.
+		items = expense.items?.length
+			? expense.items.map((i) => ({ name: i.name, qty: i.qty || 1, price: i.price || 0 }))
+			: [{ name: expense.merchant || 'Total', qty: 1, price: expense.total || 0 }];
 	});
 
 	/** Format angka dengan pemisah ribuan koma: 20000 → "20,000" @param {number} n @returns {string} */
@@ -65,14 +95,23 @@
 	/** @type {import('@sveltejs/kit').SubmitFunction} */
 	function submit({ formData }) {
 		submitting = true;
+		error = '';
 		formData.set('items', JSON.stringify(items));
-		return async ({ result, update }) => {
+		return async ({ result }) => {
 			submitting = false;
 			if (result.type === 'success') {
-				reset();
+				if (!isEdit) reset();
 				onclose?.();
+				// Action edit hidup di route lain, jadi data halaman ini harus
+				// diambil ulang secara eksplisit.
+				await invalidateAll();
+				return;
 			}
-			await update();
+			if (result.type === 'failure') {
+				error = String(result.data?.error ?? 'Gagal menyimpan.');
+				return;
+			}
+			await invalidateAll();
 		};
 	}
 </script>
@@ -81,17 +120,28 @@
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<button class="absolute inset-0 bg-forest-900/30 backdrop-blur-[2px]" aria-label="Tutup" onclick={onclose}></button>
 
-		<form method="POST" action="/?/add" use:enhance={submit} class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-surface p-6 shadow-xl">
+		<form method="POST" action={formAction} use:enhance={submit} class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-surface p-6 shadow-xl">
+			{#if isEdit}<input type="hidden" name="id" value={expense?.id ?? ''} />{/if}
 			<div class="flex items-start justify-between">
 				<div>
-					<h2 class="text-lg font-bold">Tambah Pengeluaran</h2>
-					<p class="text-sm text-ink-soft">Catat pengeluaran tanpa struk secara manual.</p>
+					<h2 class="text-lg font-bold">{isEdit ? 'Ubah Pengeluaran' : 'Tambah Pengeluaran'}</h2>
+					<p class="text-sm text-ink-soft">
+						{isEdit ? 'Perbaiki data yang salah baca atau salah kategori.' : 'Catat pengeluaran tanpa struk secara manual.'}
+					</p>
 				</div>
 				<button type="button" onclick={onclose} class="grid size-8 place-items-center rounded-lg text-ink-mute hover:bg-canvas hover:text-ink" aria-label="Tutup">✕</button>
 			</div>
 
 			{#if demo}
 				<p class="mt-3 rounded-lg bg-warn-bg px-3 py-2 text-xs font-medium text-warn">Mode demo: data belum tersimpan ke Google Sheet (atur kredensial di .env).</p>
+			{/if}
+			{#if error}
+				<p class="mt-3 rounded-lg bg-warn-bg px-3 py-2 text-xs font-medium text-warn">{error}</p>
+			{/if}
+			{#if isEdit && expense?.source === 'telegram'}
+				<p class="mt-3 rounded-lg bg-active px-3 py-2 text-xs font-medium text-forest-700">
+					Hasil baca struk otomatis. Teks asli & foto tetap tersimpan meski data di sini diubah.
+				</p>
 			{/if}
 
 			<div class="mt-5 grid grid-cols-2 gap-3">
@@ -161,7 +211,7 @@
 			<div class="mt-4 flex justify-end gap-2">
 				<button type="button" onclick={onclose} class="rounded-lg px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-canvas">Batal</button>
 				<button type="submit" disabled={submitting || total <= 0} class="rounded-lg bg-lime-500 px-5 py-2 text-sm font-bold text-forest-900 transition hover:bg-lime-400 disabled:opacity-50">
-					{submitting ? 'Menyimpan…' : 'Simpan'}
+					{submitting ? 'Menyimpan…' : isEdit ? 'Simpan Perubahan' : 'Simpan'}
 				</button>
 			</div>
 		</form>

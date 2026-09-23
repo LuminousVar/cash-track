@@ -1,7 +1,8 @@
 <script>
 	import { page } from '$app/state';
 
-	let { user = null } = $props();
+	/** @type {{ user?: string | null, onnavigate?: () => void }} */
+	let { user = null, onnavigate } = $props();
 
 	// Ikon inline (gaya Lucide) — string path, dibungkus <svg> saat render.
 	const ic = {
@@ -44,7 +45,7 @@
 
 <aside class="flex h-full w-[244px] shrink-0 flex-col bg-surface px-4 py-5">
 	<!-- Logo -->
-	<a href="/" class="flex items-center gap-2.5 px-2">
+	<a href="/" onclick={onnavigate} class="flex items-center gap-2.5 px-2">
 		<span class="grid size-8 place-items-center rounded-xl bg-lime-500 text-forest-900">
 			<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 				<path d="M4 2.5v19l2-1 2 1 2-1 2 1 2-1 2 1v-19l-2 1-2-1-2 1-2-1-2 1-2-1Z" />
@@ -69,6 +70,7 @@
 				<li>
 					<a
 						href={item.href}
+						onclick={onnavigate}
 						class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors {isActive(item.href)
 							? 'bg-active text-active-fg'
 							: 'text-ink-soft hover:bg-canvas hover:text-ink'}"
@@ -86,6 +88,7 @@
 				<li>
 					<a
 						href={item.href}
+						onclick={onnavigate}
 						class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors {isActive(item.href)
 							? 'bg-active text-active-fg'
 							: 'text-ink-soft hover:bg-canvas hover:text-ink'}"
@@ -99,7 +102,7 @@
 	</nav>
 
 	<!-- Kartu status bot -->
-	<a href="/bantuan" class="mt-4 block rounded-2xl bg-linear-to-b from-forest-700 to-forest-900 p-4 text-white">
+	<a href="/bantuan" onclick={onnavigate} class="mt-4 block rounded-2xl bg-linear-to-b from-forest-700 to-forest-900 p-4 text-white">
 		<div class="flex items-center gap-2">
 			<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-lime-400">{@html ic.send}</svg>
 			<p class="text-sm font-semibold">Bot Telegram aktif</p>

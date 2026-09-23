@@ -12,6 +12,8 @@ Personal expense tracker powered by a Telegram bot. Send a receipt photo → Vis
 - **Google Sheets backend** — all expenses stored in a spreadsheet you own and control
 - **SvelteKit dashboard** — monthly chart, category breakdown, recent transactions, spending summary
 - **Manual entry** — add expenses via the web form with per-item breakdown (name, qty, price)
+- **Edit & delete** — fix a misread receipt from the dashboard, or undo the last entry straight from Telegram with `/hapus`
+- **Item-level detail** — expand any transaction to see the parsed line items, and search across them
 - **Budget management** — set a monthly limit, track progress with a visual gauge, view 12-month history
 - **Budget alerts via Telegram** — get a notification when spending hits a configurable warning threshold (default 80%) and again when the budget is exceeded
 - **Smart insight card** — rule-based analysis on the dashboard: spending status, trend vs last month, top category, and end-of-month projection
@@ -24,7 +26,7 @@ Personal expense tracker powered by a Telegram bot. Send a receipt photo → Vis
 
 Most projects like this reach for Supabase, Neon, PlanetScale, or some other managed database the moment data needs to be stored. For a single-user expense tracker, that means creating accounts, managing connection strings, worrying about free tier limits, and dealing with cold start latency on every serverless invocation.
 
-cash-track skips all of that. **Google Sheets is the database.** One row per expense, 13 columns, fully human-readable. You can open the spreadsheet, filter by month, edit a typo, export to CSV, or share it with someone — without any tooling or SQL knowledge. The Sheets API is free within Google's generous quota and runs entirely on infrastructure you already have.
+cash-track skips all of that. **Google Sheets is the database.** One row per expense, 14 columns, fully human-readable. You can open the spreadsheet, filter by month, edit a typo, export to CSV, or share it with someone — without any tooling or SQL knowledge. The Sheets API is free within Google's generous quota and runs entirely on infrastructure you already have.
 
 No ORM. No migrations. No connection pooling. No database URL to rotate. No paid plan that kicks in after 500MB. Your data lives in a file you own, not in a vendor's cloud you rent.
 
@@ -54,11 +56,15 @@ bun install
 ### 2. Google Spreadsheet
 
 1. Create a new Google Spreadsheet.
-2. On row 1, add these **13 headers** in order (exact spelling matters):
+2. On row 1, add these **14 headers** in order (exact spelling matters):
 
 ```
-timestamp  date  merchant  total  currency  category  payment_method  items  photo_url  raw_text  source  user  notes
+timestamp  date  merchant  total  currency  category  payment_method  items  photo_url  raw_text  source  user  notes  id
 ```
+
+> Upgrading an existing 13-column sheet? Add the `id` header and run
+> `bun scripts/backfill-ids.js` once — it fills the column for every existing row.
+> Rows without an `id` cannot be edited or deleted from the dashboard.
 
 3. Copy the spreadsheet **ID** from the URL:
    `https://docs.google.com/spreadsheets/d/`**`<SHEET_ID>`**`/edit`
@@ -174,6 +180,17 @@ bun scripts/hash-password.js 'password-for-alice'
 ```
 
 > In a `.env` file, wrap values containing `$` in **single quotes** or escape each `$` as `\$`. In Vercel dashboard, paste as-is.
+
+---
+
+## Telegram commands
+
+| Command | What it does |
+|---|---|
+| *(send a photo)* | OCR → parse → save, replies with the parsed summary and the entry's short ID |
+| `/start` | Welcome message |
+| `/hapus` | Delete your most recent Telegram-sourced entry |
+| `/hapus <id>` | Delete a specific entry by the ID shown in the confirmation reply |
 
 ---
 
