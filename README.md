@@ -8,7 +8,7 @@ Personal expense tracker powered by a Telegram bot. Send a receipt photo to the 
 
 - **Telegram bot**: send a receipt photo, get an automatic reply with parsed details (merchant, total, category, items)
 - **Vision OCR**: Google Cloud Vision extracts text from any receipt image
-- **AI parsing**: DeepSeek (`deepseek-v4`) structures the raw text into clean JSON
+- **AI parsing**: DeepSeek (`deepseek-flash`) structures the raw text into clean JSON
 - **Google Sheets backend**: all expenses stored in a spreadsheet you own and control
 - **SvelteKit dashboard**: monthly chart, category breakdown, recent transactions, spending summary
 - **Manual entry**: add expenses via the web form with per-item breakdown (name, qty, price)

@@ -1,4 +1,5 @@
 import { getBudget, isConfigured } from '$lib/server/expenses.js';
+import { DEEPSEEK_MODEL } from '$lib/server/deepseek.js';
 import { readConfig, writeConfig, isVercel } from '$lib/server/config.js';
 import { env } from '$env/dynamic/private';
 import { fail } from '@sveltejs/kit';
@@ -28,7 +29,7 @@ export function load() {
 		deepseek: {
 			configured: !!get('DEEPSEEK_API_KEY'),
 			keyMasked: mask(get('DEEPSEEK_API_KEY')),
-			model: 'deepseek-v4',
+			model: DEEPSEEK_MODEL,
 		},
 		google: {
 			configured: !!get('GOOGLE_SERVICE_ACCOUNT') && !!get('GOOGLE_SHEET_ID'),

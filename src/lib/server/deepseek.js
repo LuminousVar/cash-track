@@ -18,6 +18,9 @@ Balas HANYA JSON dengan field:
 - items: array {name, qty, price} untuk tiap barang (price = harga satuan; number)
 Jika ragu kategori, pakai "Lainnya". Jangan menambah teks lain di luar JSON.`;
 
+/** Nama model DeepSeek. Cek daftar yang valid: GET https://api.deepseek.com/models */
+export const DEEPSEEK_MODEL = 'deepseek-flash';
+
 /** @param {string} c */
 const pickCategory = (c) => (CATEGORIES.includes(c) ? c : 'Lainnya');
 /** @param {string} m */
@@ -47,7 +50,7 @@ export async function parseReceipt(text) {
 		method: 'POST',
 		headers: { 'content-type': 'application/json', authorization: `Bearer ${env.DEEPSEEK_API_KEY}` },
 		body: JSON.stringify({
-			model: 'deepseek-v4',
+			model: DEEPSEEK_MODEL,
 			response_format: { type: 'json_object' },
 			temperature: 0.1,
 			messages: [
@@ -56,7 +59,11 @@ export async function parseReceipt(text) {
 			]
 		})
 	});
-	if (!res.ok) throw new Error(`DeepSeek error ${res.status}`);
+	if (!res.ok) {
+		// Sertakan pesan dari DeepSeek supaya log Vercel langsung menunjukkan penyebabnya.
+		const detail = await res.text().catch(() => '');
+		throw new Error(`DeepSeek error ${res.status}: ${detail.slice(0, 300)}`);
+	}
 
 	const data = /** @type {any} */ (await res.json());
 	const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? '{}');
