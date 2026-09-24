@@ -77,12 +77,12 @@ export async function updateRow(rowNumber, values, tab = SHEET_TAB) {
 	await writeRange(`${tab}!A${rowNumber}:N${rowNumber}`, [values]);
 }
 
-// Gid tab tidak pernah berubah — cache seperti _client.
+// Gid tab tidak pernah berubah, jadi cache seperti _client.
 /** @type {number | undefined} */
 let _sheetId;
 
 /**
- * Nama tab → sheetId (gid numerik). Dibutuhkan batchUpdate.
+ * Ubah nama tab jadi sheetId (gid numerik). Dibutuhkan batchUpdate.
  * @param {string} [tab]
  * @returns {Promise<number>}
  */
@@ -98,7 +98,7 @@ export async function getSheetId(tab = SHEET_TAB) {
 }
 
 /**
- * Hapus satu baris. Values API tak bisa menghapus baris — harus lewat batchUpdate.
+ * Hapus satu baris. Values API tak bisa menghapus baris, harus lewat batchUpdate.
  * @param {number} rowNumber  nomor baris di sheet, 1-based
  * @param {string} [tab]
  */
@@ -117,7 +117,7 @@ export async function deleteRow(rowNumber, tab = SHEET_TAB) {
 }
 
 /**
- * OCR gambar (base64) via Cloud Vision DOCUMENT_TEXT_DETECTION → teks mentah.
+ * OCR gambar (base64) via Cloud Vision DOCUMENT_TEXT_DETECTION, hasilnya teks mentah.
  * @param {string} base64
  * @returns {Promise<string>}
  */

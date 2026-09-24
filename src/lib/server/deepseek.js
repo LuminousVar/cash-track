@@ -1,4 +1,4 @@
-// Strukturkan teks struk (hasil OCR) → JSON via DeepSeek (chat JSON mode).
+// Strukturkan teks struk (hasil OCR) jadi JSON via DeepSeek (chat JSON mode).
 import { env } from '$env/dynamic/private';
 import { CATEGORIES, PAYMENT_METHODS } from '$lib/format.js';
 

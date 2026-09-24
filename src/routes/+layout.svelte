@@ -32,13 +32,13 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>{pageTitle === 'Dashboard' ? 'cashtrack' : `${pageTitle} — cashtrack`}</title>
+	<title>{pageTitle === 'Dashboard' ? 'cashtrack' : `${pageTitle} | cashtrack`}</title>
 </svelte:head>
 
 {#if bare}
 	{@render children()}
 {:else}
-	<div class="flex h-screen overflow-hidden">
+	<div class="flex h-dvh overflow-hidden">
 		<!-- Sidebar tetap: hanya md ke atas -->
 		<div class="hidden md:flex">
 			<Sidebar user={data.user} />
@@ -68,6 +68,11 @@
 			</div>
 
 			<main class="flex-1 overflow-y-auto px-4 py-5 md:px-7 md:py-6">
+				{#if data.demo}
+					<p class="mb-4 rounded-lg bg-warn-bg px-3 py-2 text-xs font-medium text-warn">
+						Mode demo: Google Sheet belum tersambung, jadi data yang tampil adalah contoh dan perubahan tidak disimpan.
+					</p>
+				{/if}
 				{@render children()}
 			</main>
 		</div>

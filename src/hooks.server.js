@@ -3,7 +3,7 @@ import { SESSION_COOKIE, readSessionToken, authConfigured } from '$lib/server/au
 
 // Route yang boleh diakses tanpa login. Webhook Telegram punya autentikasi
 // sendiri (x-telegram-bot-api-secret-token), jadi dia satu-satunya /api/* yang
-// terbuka — route /api/* lain terlindungi secara default.
+// terbuka. Route /api/* lain terlindungi secara default.
 /** @param {string} path */
 const isPublic = (path) => path === '/login' || path === '/api/telegram';
 

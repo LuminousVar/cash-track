@@ -24,8 +24,8 @@
 
 {#if form?.success}
 	<div class="mt-4 rounded-xl bg-success-bg px-4 py-3 text-sm font-semibold text-success">
-		✓ Konfigurasi berhasil disimpan.
-		{#if data.isVercel}<span class="font-normal opacity-80"> (Vercel: berlaku selama instance aktif — gunakan env vars untuk permanen.)</span>{/if}
+		Konfigurasi berhasil disimpan.
+		{#if data.isVercel}<span class="font-normal opacity-80"> (Vercel: berlaku selama instance aktif. Gunakan env vars untuk permanen.)</span>{/if}
 	</div>
 {/if}
 {#if form?.error}
@@ -44,7 +44,7 @@
 		<div class="mt-4 flex items-center gap-3">
 			<span class="grid size-11 place-items-center rounded-xl bg-forest-700 text-sm font-bold text-white">{initials}</span>
 			<div class="min-w-0 flex-1">
-				<p class="font-semibold">{data.user ?? '—'}</p>
+				<p class="font-semibold">{data.user ?? '-'}</p>
 				<p class="text-xs text-ink-mute">{data.user ? 'Sedang masuk' : 'Auth belum dikonfigurasi'}</p>
 			</div>
 			{#if data.user}
@@ -74,7 +74,7 @@
 			<span class="text-sm font-semibold">Bot Telegram</span>
 			<span class="rounded-full px-2.5 py-1 text-xs font-semibold {statusClass(data.telegram.hasToken)}">{statusLabel(data.telegram.hasToken)}</span>
 		</div>
-		<p class="mt-1.5 text-sm text-ink-soft">Kirim foto struk → OCR → AI parse → dicatat ke Sheet.</p>
+		<p class="mt-1.5 text-sm text-ink-soft">Foto struk dibaca OCR, diurai AI, lalu dicatat ke Sheet.</p>
 
 		<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
 			<!-- Bot Token -->
@@ -117,7 +117,7 @@
 			<div class="space-y-1.5">
 				<label for="tg-ids" class="block text-xs font-semibold text-ink-soft">
 					Whitelist ID
-					{#if !data.telegram.allowedIds}<span class="font-medium text-warn"> ⚠ Kosong = terbuka!</span>{/if}
+					{#if !data.telegram.allowedIds}<span class="font-medium text-warn"> Kosong berarti terbuka untuk semua!</span>{/if}
 				</label>
 				<input
 					id="tg-ids"
@@ -141,10 +141,10 @@
 	<!-- DeepSeek / LLM -->
 	<article class="rounded-card bg-surface p-5">
 		<div class="flex items-center justify-between">
-			<span class="text-sm font-semibold">AI Parser — DeepSeek</span>
+			<span class="text-sm font-semibold">AI Parser: DeepSeek</span>
 			<span class="rounded-full px-2.5 py-1 text-xs font-semibold {statusClass(data.deepseek.configured)}">{statusLabel(data.deepseek.configured)}</span>
 		</div>
-		<p class="mt-1.5 text-sm text-ink-soft">Mengurai teks OCR dari struk → merchant, total, kategori, rincian item (JSON mode).</p>
+		<p class="mt-1.5 text-sm text-ink-soft">Mengurai teks OCR dari struk jadi merchant, total, kategori, dan rincian item (JSON mode).</p>
 
 		<div class="mt-4 space-y-3">
 			<div class="space-y-1.5">
@@ -256,7 +256,7 @@
 		{#if data.isVercel}
 			<span class="font-medium text-warn">Vercel:</span> konfigurasi tersimpan sementara (reset saat cold start). Gunakan Vercel Dashboard env vars untuk permanen.
 		{:else}
-			Tersimpan di <code class="rounded bg-canvas px-1.5 py-0.5 font-mono text-xs text-ink">config.local.json</code> — langsung aktif tanpa restart.
+			Tersimpan di <code class="rounded bg-canvas px-1.5 py-0.5 font-mono text-xs text-ink">config.local.json</code>, langsung aktif tanpa restart.
 		{/if}
 	</p>
 	<button

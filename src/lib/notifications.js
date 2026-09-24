@@ -1,4 +1,4 @@
-// Feed notifikasi — diturunkan dari data yang sudah ada, bukan disimpan.
+// Feed notifikasi, diturunkan dari data yang sudah ada, bukan disimpan.
 // Murni & client-safe: tidak ada import server, tidak ada panggilan API.
 // Pola sama seperti insight.js.
 import { formatRp, formatDate } from './format.js';
@@ -36,7 +36,7 @@ export function buildNotifications(data, warnPct = 80, limit = 15) {
 	const out = [];
 	const s = data.summary;
 
-	// Ambang anggaran — selalu di atas karena paling perlu dilihat.
+	// Ambang anggaran selalu di atas karena paling perlu dilihat.
 	if (s && s.budget > 0 && s.thisMonth > 0) {
 		if (s.budgetPct >= 100) {
 			out.push({
@@ -44,7 +44,7 @@ export function buildNotifications(data, warnPct = 80, limit = 15) {
 				icon: 'alert',
 				tone: 'warn',
 				title: 'Anggaran bulan ini terlampaui',
-				desc: `Terpakai ${formatRp(s.thisMonth)} dari ${formatRp(s.budget)} — lebih ${formatRp(s.thisMonth - s.budget)}.`,
+				desc: `Terpakai ${formatRp(s.thisMonth)} dari ${formatRp(s.budget)}, lebih ${formatRp(s.thisMonth - s.budget)}.`,
 				time: 'Bulan ini',
 				at: Number.MAX_SAFE_INTEGER
 			});

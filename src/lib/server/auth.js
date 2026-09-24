@@ -1,5 +1,5 @@
 // Autentikasi: verifikasi password (argon2id) + token sesi bertanda-tangan (HMAC).
-// Kredensial dari env — default 1 user. Lihat plan & README.
+// Kredensial dari env, default 1 user. Lihat plan & README.
 import { env } from '$env/dynamic/private';
 import { verify } from '@node-rs/argon2';
 
@@ -30,7 +30,7 @@ export function authConfigured() {
 }
 
 /**
- * Verifikasi username (case-insensitive) + password. → username asli | null.
+ * Verifikasi username (case-insensitive) + password. Mengembalikan username asli atau null.
  * @param {string} username
  * @param {string} password
  */
@@ -45,7 +45,7 @@ export async function verifyCredentials(username, password) {
 	}
 }
 
-// ── Token sesi: "<payloadB64>.<hmacB64>" ─────────────────────────────────────
+// Token sesi: "<payloadB64>.<hmacB64>"
 const enc = new TextEncoder();
 
 /** @param {string} data */

@@ -16,22 +16,23 @@
 	}
 </script>
 
-<header class="flex items-center justify-between gap-4">
-	<div>
+<header class="flex flex-wrap items-center gap-3 sm:flex-nowrap sm:gap-4">
+	<div class="min-w-0 flex-1">
 		<h1 class="text-2xl font-extrabold tracking-tight">{title}</h1>
 		{#if subtitle}<p class="text-sm text-ink-soft">{subtitle}</p>{/if}
 	</div>
-	<div class="flex items-center gap-3">
-		<button
-			onclick={toggleTheme}
-			aria-label={dark ? 'Tema terang' : 'Tema gelap'}
-			title={dark ? 'Tema Terang' : 'Tema Gelap'}
-			class="grid size-9 place-items-center rounded-full bg-surface ring-1 ring-line transition hover:ring-lime-400"
-		>
-			<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-ink-soft">
-				{@html dark ? sun : moon}
-			</svg>
-		</button>
-		{#if children}{@render children()}{/if}
-	</div>
+	<button
+		onclick={toggleTheme}
+		aria-label={dark ? 'Tema terang' : 'Tema gelap'}
+		title={dark ? 'Tema Terang' : 'Tema Gelap'}
+		class="grid size-9 shrink-0 place-items-center rounded-full bg-surface ring-1 ring-line transition hover:ring-lime-400"
+	>
+		<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-ink-soft">
+			{@html dark ? sun : moon}
+		</svg>
+	</button>
+	{#if children}
+		<!-- Di HP aksi mengisi satu baris penuh supaya tombol tidak terlipat dua baris. -->
+		<div class="flex w-full gap-3 *:flex-1 *:justify-center sm:w-auto sm:*:flex-none">{@render children()}</div>
+	{/if}
 </header>

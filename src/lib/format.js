@@ -21,7 +21,7 @@ export const CATEGORY_TONE = {
 };
 
 /**
- * Format angka jadi Rupiah: 1250000 → "Rp 1.250.000".
+ * Format angka jadi Rupiah, misalnya 1250000 jadi "Rp 1.250.000".
  * @param {number} n
  */
 export function formatRp(n) {
@@ -29,7 +29,7 @@ export function formatRp(n) {
 }
 
 /**
- * Versi ringkas untuk label kecil: 1250000 → "1,3jt".
+ * Versi ringkas untuk label kecil, misalnya 1250000 jadi "1,3jt".
  * @param {number} n
  */
 export function formatRpShort(n) {
@@ -40,7 +40,7 @@ export function formatRpShort(n) {
 }
 
 /**
- * Format tanggal ISO → "02 Jul 2024".
+ * Format tanggal ISO jadi "02 Jul 2024".
  * @param {string} iso
  */
 export function formatDate(iso) {

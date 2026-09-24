@@ -54,7 +54,7 @@
 
 {#if form?.success}
 	<div class="mt-4 rounded-xl bg-success-bg px-4 py-3 text-sm font-semibold text-success">
-		✓ Pengaturan anggaran berhasil disimpan.
+		Pengaturan anggaran berhasil disimpan.
 	</div>
 {/if}
 {#if form?.error}
@@ -187,7 +187,7 @@
 				{#if !data.notifyChatId && data.firstAllowedId}
 					<p class="text-[11px] text-ink-mute">Kosong = otomatis pakai <span class="font-mono text-ink">{data.firstAllowedId}</span> (ID pertama di whitelist).</p>
 				{:else if !data.notifyChatId && !data.firstAllowedId}
-					<p class="text-[11px] text-warn">⚠ Isi ID Telegram kamu agar notifikasi bisa dikirim.</p>
+					<p class="text-[11px] text-warn">Isi ID Telegram kamu agar notifikasi bisa dikirim.</p>
 				{/if}
 			</label>
 
@@ -229,14 +229,14 @@
 						<tr class="border-b border-line/60 last:border-0">
 							<td class="py-2.5 font-medium">{m.month}</td>
 							<td class="num py-2.5 text-right {m.amount === 0 ? 'text-ink-mute' : ''}">
-								{m.amount > 0 ? formatRp(m.amount) : '—'}
+								{m.amount > 0 ? formatRp(m.amount) : '-'}
 							</td>
 							<td class="num py-2.5 text-right text-xs {mExceed ? 'font-bold text-[#dc2626]' : mWarn ? 'font-semibold text-warn' : 'text-ink-mute'}">
-								{m.amount > 0 ? `${mpct}%` : '—'}
+								{m.amount > 0 ? `${mpct}%` : '-'}
 							</td>
 							<td class="py-2.5 text-center">
 								{#if m.amount === 0}
-									<span class="text-xs text-ink-mute">—</span>
+									<span class="text-xs text-ink-mute">-</span>
 								{:else if mExceed}
 									<span class="rounded-md bg-[#fef2f2] px-2 py-0.5 text-[11px] font-semibold text-[#dc2626]">Melebihi</span>
 								{:else if mWarn}

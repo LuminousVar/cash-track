@@ -2,12 +2,12 @@
 // Jalankan sekali setelah upgrade ke sheet 14 kolom:
 //   bun scripts/backfill-ids.js
 //
-// Baca kredensial langsung dari .env — script ini di luar SvelteKit, jadi tidak
+// Baca kredensial langsung dari .env. Script ini di luar SvelteKit, jadi tidak
 // bisa pakai $env/dynamic/private.
 import { readFileSync } from 'node:fs';
 import { GoogleAuth } from 'google-auth-library';
 
-// .env → process.env (hanya key yang belum diset di shell).
+// Salin .env ke process.env (hanya key yang belum diset di shell).
 try {
 	for (const line of readFileSync('.env', 'utf8').split('\n')) {
 		const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/);
@@ -16,7 +16,7 @@ try {
 		if (!process.env[m[1]]) process.env[m[1]] = val;
 	}
 } catch {
-	/* tanpa .env — andalkan env shell */
+	/* tanpa .env, andalkan env shell */
 }
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
@@ -66,4 +66,4 @@ await client.request({
 	data: { range, values: ids }
 });
 
-console.log(`Selesai — ${filled} baris diberi id baru (dari total ${rows.length - 1}).`);
+console.log(`Selesai: ${filled} baris diberi id baru (dari total ${rows.length - 1}).`);

@@ -18,7 +18,7 @@ export async function sendMessage(chatId, text) {
 }
 
 /**
- * Tukar file_id → file_path (untuk diunduh).
+ * Tukar file_id jadi file_path (untuk diunduh).
  * @param {string} fileId
  * @returns {Promise<string>}
  */
@@ -30,7 +30,7 @@ export async function getFile(fileId) {
 }
 
 /**
- * Unduh file dari Telegram → base64 (untuk Vision OCR).
+ * Unduh file dari Telegram sebagai base64 (untuk Vision OCR).
  * @param {string} filePath
  * @returns {Promise<string>}
  */

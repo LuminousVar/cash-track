@@ -4,7 +4,7 @@
 	/** @type {{ user?: string | null, onnavigate?: () => void }} */
 	let { user = null, onnavigate } = $props();
 
-	// Ikon inline (gaya Lucide) — string path, dibungkus <svg> saat render.
+	// Ikon inline (gaya Lucide): string path, dibungkus <svg> saat render.
 	const ic = {
 		dashboard:
 			'<rect x="3" y="3" width="7" height="9" rx="1.4"/><rect x="14" y="3" width="7" height="5" rx="1.4"/><rect x="14" y="12" width="7" height="9" rx="1.4"/><rect x="3" y="16" width="7" height="5" rx="1.4"/>',

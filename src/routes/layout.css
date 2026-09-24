@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* ── Design tokens (palet diambil dari referensi Fundcy: forest → lime → emerald) ── */
+/* Design tokens (palet diambil dari referensi Fundcy: forest, lime, emerald) */
 @theme {
 	--color-canvas: #f4f5f6;
 	--color-surface: #ffffff;
@@ -53,7 +53,7 @@
 		font-variant-numeric: tabular-nums;
 	}
 
-	/* Tailwind v4 tak lagi memberi cursor pointer ke tombol — kembalikan. */
+	/* Tailwind v4 tak lagi memberi cursor pointer ke tombol, jadi kembalikan. */
 	button:not(:disabled),
 	[role='button']:not(:disabled),
 	label:has(> input[type='checkbox']),
@@ -65,7 +65,7 @@
 	}
 }
 
-/* ── Dark mode — override design tokens saat class .dark ada di <html> ── */
+/* Dark mode: override design tokens saat class .dark ada di <html> */
 .dark {
 	--color-canvas: #0d1511;
 	--color-surface: #162018;
@@ -104,4 +104,27 @@ input[type='number'] {
 }
 .dark * {
 	scrollbar-color: #2e4535 transparent;
+}
+
+/* Safari iOS otomatis zoom saat fokus ke field di bawah 16px. Di layar kecil
+   paksa 16px. */
+@media (max-width: 639px) {
+	input:not([type='checkbox']):not([type='radio']),
+	textarea,
+	select {
+		font-size: 16px;
+	}
+}
+
+/* Daftar pilihan <select> dan date picker digambar browser. Tanpa color-scheme,
+   di mode gelap popup-nya tetap putih sementara teksnya ikut warna terang. */
+:root {
+	color-scheme: light;
+}
+.dark {
+	color-scheme: dark;
+}
+option {
+	background-color: var(--color-surface);
+	color: var(--color-ink);
 }

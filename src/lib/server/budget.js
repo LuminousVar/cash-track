@@ -5,7 +5,7 @@ import { sendMessage } from './telegram.js';
 import { listExpenses, isConfigured, getBudget } from './expenses.js';
 import { formatRp } from '$lib/format.js';
 
-/** Chat ID tujuan notif — dari config, fallback ke ID pertama whitelist. */
+/** Chat ID tujuan notif, dari config, fallback ke ID pertama whitelist. */
 function getNotifyChatId() {
 	const cfg = readConfig();
 	if (cfg.BUDGET_NOTIFY_CHAT_ID) return cfg.BUDGET_NOTIFY_CHAT_ID;
@@ -55,22 +55,22 @@ export async function checkBudgetAlert() {
 		if (pct >= 100 && cfg.BUDGET_EXCEED_SENT !== monthKey) {
 			await sendMessage(
 				chatId,
-				`🚨 Budget Bulanan Terlampaui!\n\n` +
+				`Budget Bulanan Terlampaui\n\n` +
 					`Pengeluaran : ${formatRp(thisMonth)}\n` +
 					`Budget      : ${formatRp(budget)}\n` +
 					`Kelebihan   : ${formatRp(thisMonth - budget)}\n\n` +
-					`Yuk rem dulu pengeluarannya! 💪`
+					`Yuk rem dulu pengeluarannya.`
 			);
 			updates.BUDGET_EXCEED_SENT = monthKey;
 			updates.BUDGET_WARN_SENT = monthKey;
 		} else if (pct >= warnPct && cfg.BUDGET_WARN_SENT !== monthKey) {
 			await sendMessage(
 				chatId,
-				`⚠️ Peringatan Anggaran — ${pct}% terpakai\n\n` +
+				`Peringatan Anggaran: ${pct}% terpakai\n\n` +
 					`Terpakai : ${formatRp(thisMonth)}\n` +
 					`Budget   : ${formatRp(budget)}\n` +
 					`Sisa     : ${formatRp(Math.max(0, budget - thisMonth))}\n\n` +
-					`Hati-hati ya! 🙏`
+					`Hati-hati ya.`
 			);
 			updates.BUDGET_WARN_SENT = monthKey;
 		}

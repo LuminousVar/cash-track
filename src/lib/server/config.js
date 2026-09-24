@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
-// Di Vercel (serverless) filesystem read-only — pakai /tmp (ephemeral per instance).
-// Di lokal — pakai config.local.json di root project (gitignored).
+// Di Vercel (serverless) filesystem read-only, jadi pakai /tmp (ephemeral per instance).
+// Di lokal, pakai config.local.json di root project (gitignored).
 const isVercel = !!process.env.VERCEL;
 export const CONFIG_PATH = isVercel ? '/tmp/ct-config.json' : './config.local.json';
 

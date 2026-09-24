@@ -6,7 +6,7 @@
 
 	const items = $derived(buildNotifications(data, data.warnPct));
 
-	// Status "sudah dibaca" cukup per-browser — pola sama dengan toggle tema.
+	// Status "sudah dibaca" cukup per-browser, pola sama dengan toggle tema.
 	const KEY = 'ct-read-notifications';
 
 	/** @type {string[]} */
@@ -26,7 +26,7 @@
 		try {
 			localStorage.setItem(KEY, JSON.stringify(read));
 		} catch {
-			/* private mode — abaikan */
+			/* private mode, abaikan */
 		}
 	}
 
@@ -62,7 +62,7 @@
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center gap-2">
 						<p class="font-semibold">{n.title}</p>
-						{#if !read.includes(n.id)}<span class="size-2 rounded-full bg-lime-500"></span>{/if}
+						{#if !read.includes(n.id)}<span class="size-2 shrink-0 rounded-full bg-lime-500"></span>{/if}
 					</div>
 					<p class="mt-0.5 text-sm text-ink-soft">{n.desc}</p>
 				</div>

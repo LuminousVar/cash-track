@@ -1,6 +1,6 @@
 {
 	"name": "cash-track",
-	"description": "Personal expense tracker: Telegram receipt photo → OCR → AI parse → Google Sheets → SvelteKit dashboard",
+	"description": "Personal expense tracker that reads Telegram receipt photos with OCR and AI, stores them in Google Sheets, and shows them on a SvelteKit dashboard",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",

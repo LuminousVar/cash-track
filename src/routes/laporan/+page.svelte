@@ -9,10 +9,13 @@
 	const peakIndex = $derived(flow.reduce((bi, m, i, a) => (m.amount > a[bi].amount ? i : bi), 0));
 	const totalYear = $derived(flow.reduce((s, m) => s + m.amount, 0));
 	const activeMonths = $derived(flow.filter((m) => m.amount > 0).length || 1);
+	const hasData = $derived(totalYear > 0);
+	const topCat = $derived(data.report.categoryTotals[0]);
 	const maxCat = $derived(Math.max(1, ...data.report.categoryTotals.map((c) => c.amount)));
 
 	const maxScale = $derived(maxFlow * 1.12);
-	const avgFlow = $derived(Math.round(totalYear / 12));
+	// Sama dengan kartu "Rata-rata / bulan": dibagi bulan yang ada transaksinya.
+	const avgFlow = $derived(Math.round(totalYear / activeMonths));
 	const avgLineTop = $derived(100 - Math.round((avgFlow / maxScale) * 100));
 	const dotLeft = $derived(((peakIndex + 0.5) / flow.length) * 100);
 
@@ -24,25 +27,25 @@
 
 <!-- Statistik -->
 <section class="mt-6 grid grid-cols-2 gap-5 lg:grid-cols-4">
-	<div class="rounded-card bg-surface p-5">
+	<div class="col-span-2 rounded-card bg-surface p-5 sm:col-span-1">
 		<p class="text-sm font-semibold text-ink-soft">Total setahun</p>
 		<p class="num mt-2 text-2xl font-extrabold">{formatRp(totalYear)}</p>
 	</div>
-	<div class="rounded-card bg-surface p-5">
+	<div class="col-span-2 rounded-card bg-surface p-5 sm:col-span-1">
 		<p class="text-sm font-semibold text-ink-soft">Rata-rata / bulan</p>
 		<p class="num mt-2 text-2xl font-extrabold">{formatRp(Math.round(totalYear / activeMonths))}</p>
 	</div>
 	<div class="rounded-card bg-surface p-5">
 		<p class="text-sm font-semibold text-ink-soft">Bulan tertinggi</p>
-		<p class="mt-2 text-2xl font-extrabold">{flow[peakIndex]?.month ?? '-'}</p>
+		<p class="mt-2 text-2xl font-extrabold">{hasData ? flow[peakIndex].month : '-'}</p>
 	</div>
 	<div class="rounded-card bg-surface p-5">
 		<p class="text-sm font-semibold text-ink-soft">Kategori teratas</p>
-		<p class="mt-2 text-2xl font-extrabold">{data.report.categoryTotals[0]?.name ?? '-'}</p>
+		<p class="mt-2 text-2xl font-extrabold">{topCat?.amount > 0 ? topCat.name : '-'}</p>
 	</div>
 </section>
 
-<!-- Chart bulanan (stacked bar — identik dengan dashboard) -->
+<!-- Chart bulanan (stacked bar, identik dengan dashboard) -->
 <section class="mt-5 rounded-card bg-surface p-5 shadow-[0_18px_50px_-20px_rgba(28,59,48,0.35)]">
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex flex-wrap items-center gap-3">
@@ -54,10 +57,7 @@
 				<span class="inline-block size-2 rounded-full bg-lime-500"></span>via Telegram
 			</span>
 		</div>
-		<span class="flex shrink-0 items-center gap-1 rounded-lg bg-canvas px-2.5 py-1 text-xs font-semibold text-ink-soft">
-			Bulanan
-			<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-		</span>
+		<span class="shrink-0 rounded-lg bg-canvas px-2.5 py-1 text-xs font-semibold text-ink-soft">Bulanan</span>
 	</div>
 
 	<!-- Panel chart -->
@@ -123,6 +123,7 @@
 <!-- Breakdown kategori -->
 <section class="mt-5 rounded-card bg-surface p-5">
 	<span class="text-sm font-semibold">Pengeluaran per Kategori</span>
+	<span class="ml-2 text-xs text-ink-mute">tahun ini</span>
 	<div class="mt-5 space-y-4">
 		{#each data.report.categoryTotals as c}
 			{@const tone = CATEGORY_TONE[c.name] ?? CATEGORY_TONE.Lainnya}

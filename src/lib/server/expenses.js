@@ -8,7 +8,7 @@ import { MONTHS, CATEGORIES } from '$lib/format.js';
 export { isConfigured };
 
 // Urutan kolom header di Sheet (14 kolom). `id` sengaja ditaruh paling belakang
-// supaya sheet lama yang masih 13 kolom tetap terbaca — baris lama id-nya kosong
+// supaya sheet lama yang masih 13 kolom tetap terbaca. Baris lama id-nya kosong
 // sampai di-backfill (lihat scripts/backfill-ids.js).
 export const HEADER = [
 	'timestamp', 'date', 'merchant', 'total', 'currency', 'category',
@@ -18,10 +18,10 @@ export const HEADER = [
 const ID_COL = HEADER.indexOf('id');
 const USER_COL = HEADER.indexOf('user');
 
-/** ID pendek — cukup unik untuk skala personal, cukup ringkas untuk pesan Telegram. */
+/** ID pendek: cukup unik untuk skala personal, cukup ringkas untuk pesan Telegram. */
 const newId = () => crypto.randomUUID().slice(0, 8);
 
-// ── Cache baris sheet ────────────────────────────────────────────────────────
+// Cache baris sheet
 // Per-instance & berumur pendek. Di Vercel ikut hilang saat instance daur ulang;
 // itu tidak masalah karena tak ada state yang bergantung padanya.
 const CACHE_TTL = 60_000;
@@ -67,7 +67,7 @@ function parseItems(raw) {
 }
 
 /**
- * Baris sheet → objek pengeluaran yang dipakai UI.
+ * Ubah baris sheet jadi objek pengeluaran yang dipakai UI.
  * @param {string[]} row
  * @param {number} [rowNumber]  nomor baris di sheet (1-based), untuk update/delete
  * @returns {Expense}
@@ -94,7 +94,7 @@ function rowToExpense(row, rowNumber = 0) {
 export async function listExpenses() {
 	const rows = await cachedRows();
 	if (rows.length <= 1) return [];
-	// Nomor baris ditangkap SEBELUM sort — setelah diurutkan posisi array tidak
+	// Nomor baris ditangkap SEBELUM sort, karena setelah diurutkan posisi array tidak
 	// lagi mencerminkan posisi di sheet. Baris 1 = header, jadi offset +2.
 	return rows
 		.slice(1)
@@ -147,6 +147,7 @@ function computeDashboard(expenses) {
 		topCategories,
 		summary: {
 			totalAllTime,
+			thisYear: flow.reduce((s, m) => s + m.amount, 0),
 			thisMonth,
 			dailyAvg: Math.round(thisMonth / Math.max(1, now.getDate())),
 			budget,
@@ -168,16 +169,23 @@ export function getBudget() {
 	return monthlyBudget();
 }
 
-/** Laporan: arus bulanan, ringkasan, dan total per kategori (all-time). */
+/** Laporan: arus bulanan, ringkasan, dan total per kategori (tahun berjalan). */
 export async function getReport() {
 	if (!isConfigured()) {
 		return { demo: true, monthlyFlow: DEMO.monthlyFlow, summary: DEMO.summary, categoryTotals: DEMO_CATEGORY_TOTALS };
 	}
 	const expenses = await listExpenses();
 	const { summary, monthlyFlow } = computeDashboard(expenses);
+	// Periode sama dengan monthlyFlow (tahun berjalan). Kategori di luar daftar
+	// (mis. hasil edit manual di Sheet) masuk "Lainnya" supaya totalnya tetap cocok.
+	const year = new Date().getFullYear();
 	/** @type {Record<string, number>} */
 	const map = {};
-	for (const e of expenses) map[e.category] = (map[e.category] || 0) + e.total;
+	for (const e of expenses) {
+		if (new Date(e.date).getFullYear() !== year) continue;
+		const cat = CATEGORIES.includes(e.category) ? e.category : 'Lainnya';
+		map[cat] = (map[cat] || 0) + e.total;
+	}
 	const categoryTotals = CATEGORIES.map((c) => ({ name: c, amount: map[c] || 0 })).sort((a, b) => b.amount - a.amount);
 	return { demo: false, monthlyFlow, summary, categoryTotals };
 }
@@ -247,11 +255,11 @@ export async function addReceipt(parsed, { fileId = '', rawText = '', user = '' 
 	return { persisted: true, id };
 }
 
-// ── Ubah & hapus ────────────────────────────────────────────────────────────
+// Ubah & hapus
 
 /**
  * Cari baris berdasarkan id. Sengaja baca langsung (bukan cache) supaya nomor
- * baris akurat — webhook Telegram bisa menyisipkan baris kapan saja antara
+ * baris akurat. Webhook Telegram bisa menyisipkan baris kapan saja antara
  * halaman dirender dan form dikirim.
  * @param {string} id
  * @returns {Promise<{ row: string[], rowNumber: number } | null>}
@@ -335,7 +343,7 @@ export async function lastTelegramExpense(user) {
 	return null;
 }
 
-// ── Data contoh (dev/preview) ───────────────────────────────────────────────
+// Data contoh (dev/preview)
 /** @type {Expense[]} */
 const DEMO_TX = [
 	{ merchant: 'Indomaret', date: '2024-07-02', category: 'Belanja', method: 'QRIS', total: 87_500, source: 'telegram' },
@@ -348,7 +356,7 @@ const DEMO_TX = [
 	{ merchant: 'Apotek K24', date: '2024-06-29', category: 'Kesehatan', method: 'Tunai', total: 64_000, source: 'manual' }
 ];
 
-// Total per kategori (all-time) untuk demo — jumlahnya = DEMO.summary.totalAllTime.
+// Total per kategori untuk demo. Jumlahnya = DEMO.summary.thisYear.
 const DEMO_CATEGORY_TOTALS = [
 	{ name: 'Makanan', amount: 24_500_000 },
 	{ name: 'Belanja', amount: 16_200_000 },
@@ -381,7 +389,7 @@ const DEMO = {
 		{ name: 'Belanja', amount: 1_430_000, tone: 'emerald' }
 	],
 	summary: {
-		totalAllTime: 70_875_000, thisMonth: 7_125_000, dailyAvg: 237_500,
+		totalAllTime: 70_875_000, thisYear: 70_875_000, thisMonth: 7_125_000, dailyAvg: 237_500,
 		budget: 9_500_000, budgetPct: 75, count: 142, fromTelegram: 118, fromManual: 24
 	}
 };

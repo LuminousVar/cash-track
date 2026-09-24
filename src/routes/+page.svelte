@@ -10,6 +10,24 @@
 	/** @type {import('$lib/server/expenses.js').Expense | null} */
 	let editing = $state(null);
 
+	// Periode kartu Total Pengeluaran. Nilainya sudah dihitung server semua.
+	const PERIODS = [
+		{ key: 'totalAllTime', label: 'Semua waktu' },
+		{ key: 'thisYear', label: 'Tahun ini' },
+		{ key: 'thisMonth', label: 'Bulan ini' }
+	];
+	/** @type {'totalAllTime' | 'thisYear' | 'thisMonth'} */
+	let period = $state('totalAllTime');
+	let periodOpen = $state(false);
+	/** @type {HTMLElement | undefined} */
+	let periodEl = $state();
+	const periodLabel = $derived(PERIODS.find((p) => p.key === period)?.label);
+
+	/** Tutup menu periode saat klik di luar. @param {MouseEvent} e */
+	function closePeriodOutside(e) {
+		if (periodOpen && periodEl && !periodEl.contains(/** @type {Node} */ (e.target))) periodOpen = false;
+	}
+
 	const insight = $derived(buildInsight(data));
 	/** @type {Record<'aman' | 'waspada' | 'lewat', { ring: string, chip: string, icon: string }>} */
 	const insightTone = {
@@ -40,6 +58,8 @@
 	};
 </script>
 
+<svelte:window onclick={closePeriodOutside} onkeydown={(e) => e.key === 'Escape' && (periodOpen = false)} />
+
 <PageHeader title="Dashboard" subtitle="Lacak, tinjau, dan kendalikan pengeluaranmu.">
 	<button
 		onclick={() => (showAdd = true)}
@@ -50,7 +70,7 @@
 	</button>
 </PageHeader>
 
-<!-- ── Kartu Wawasan (insight rule-based) ── -->
+<!-- Kartu Wawasan (insight rule-based) -->
 <section class="mt-6 flex items-start gap-4 rounded-card bg-surface p-5 ring-1 {insightTone[insight.tone].ring}">
 	<span class="grid size-10 shrink-0 place-items-center rounded-xl {insightTone[insight.tone].chip}">
 		<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class={insightTone[insight.tone].icon}>
@@ -66,17 +86,49 @@
 	</div>
 </section>
 
-<!-- ── Kartu ringkasan ── -->
+<!-- Kartu ringkasan -->
 <section class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
 	<!-- Total pengeluaran (semua waktu) -->
 	<article class="rounded-card bg-surface p-5">
 		<div class="flex items-center justify-between">
 			<span class="text-sm font-semibold text-ink-soft">Total Pengeluaran</span>
-			<span class="flex items-center gap-1 rounded-lg bg-canvas px-2.5 py-1 text-xs font-semibold text-ink-soft">Semua waktu
-				<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-			</span>
+			<!-- Menu kustom, bukan <select>: select native di bawah 16px bikin iOS zoom. -->
+			<div class="relative" bind:this={periodEl}>
+				<button
+					type="button"
+					onclick={() => (periodOpen = !periodOpen)}
+					aria-haspopup="listbox"
+					aria-expanded={periodOpen}
+					aria-label="Periode: {periodLabel}"
+					class="flex items-center gap-1 rounded-lg bg-canvas px-2.5 py-1.5 text-xs font-semibold text-ink-soft outline-none transition hover:text-ink focus-visible:ring-2 focus-visible:ring-forest-500"
+				>
+					{periodLabel}
+					<svg class="transition-transform {periodOpen ? 'rotate-180' : ''}" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+				</button>
+				{#if periodOpen}
+					<ul role="listbox" aria-label="Periode" class="absolute right-0 top-full z-20 mt-1.5 min-w-36 rounded-xl bg-surface p-1 shadow-lg ring-1 ring-line">
+						{#each PERIODS as p}
+							<li role="option" aria-selected={period === p.key}>
+								<button
+									type="button"
+									onclick={() => {
+										period = /** @type {typeof period} */ (p.key);
+										periodOpen = false;
+									}}
+									class="flex w-full items-center justify-between gap-3 whitespace-nowrap rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-canvas {period === p.key ? 'font-semibold text-forest-600' : 'text-ink-soft'}"
+								>
+									{p.label}
+									{#if period === p.key}
+										<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+									{/if}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
 		</div>
-		<p class="num mt-5 text-[34px] font-extrabold leading-none tracking-tight">{formatRp(data.summary.totalAllTime)}</p>
+		<p class="num mt-5 text-[34px] font-extrabold leading-none tracking-tight">{formatRp(data.summary[period] ?? 0)}</p>
 		<div class="mt-5 space-y-2">
 			<div class="flex items-center gap-2 rounded-xl bg-canvas px-3 py-2 text-sm">
 				<span class="grid size-7 place-items-center rounded-lg bg-active text-forest-600">↑</span>
@@ -140,9 +192,9 @@
 	</article>
 </section>
 
-<!-- ── Chart + anggaran ── -->
+<!-- Chart + anggaran -->
 <section class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-	<!-- Arus pengeluaran — stacked bar chart (Fundcy style) -->
+	<!-- Arus pengeluaran: stacked bar chart (Fundcy style) -->
 	<article class="rounded-card bg-surface p-5 shadow-[0_18px_50px_-20px_rgba(28,59,48,0.35)] lg:col-span-2">
 		<div class="flex items-center justify-between gap-3">
 			<div class="flex flex-wrap items-center gap-3">
@@ -154,10 +206,7 @@
 					<span class="inline-block size-2 rounded-full bg-lime-500"></span>via Telegram
 				</span>
 			</div>
-			<span class="flex shrink-0 items-center gap-1 rounded-lg bg-canvas px-2.5 py-1 text-xs font-semibold text-ink-soft">
-				Bulanan
-				<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-			</span>
+			<span class="shrink-0 rounded-lg bg-canvas px-2.5 py-1 text-xs font-semibold text-ink-soft">Bulanan</span>
 		</div>
 
 		<!-- Panel chart (chart berada di dalam container ini) -->
@@ -203,9 +252,9 @@
 							class="relative z-20 flex w-[88%] flex-col overflow-hidden rounded-lg shadow-sm transition-[filter] duration-200 group-hover:brightness-110"
 							style="height:{hTotal}%"
 						>
-							<!-- Segmen forest (manual) — atas -->
+							<!-- Segmen forest (manual), atas -->
 							<div class="w-full flex-1" style="background:linear-gradient(to top,var(--color-forest-700),var(--color-forest-500))"></div>
-							<!-- Segmen lime (telegram) — bawah -->
+							<!-- Segmen lime (telegram), bawah -->
 							{#if limePct > 0}
 								<div class="w-full shrink-0" style="height:{limePct}%; background:linear-gradient(to top,var(--color-lime-600),var(--color-lime-400))"></div>
 							{/if}
@@ -230,7 +279,7 @@
 		</div>
 		<p class="mt-4 text-5xl font-extrabold tracking-tight">{data.summary.budgetPct}<span class="text-2xl text-ink-mute">%</span></p>
 		<p class="mt-2 max-w-[15rem] text-sm leading-relaxed text-ink-soft">
-			{data.summary.budgetPct <= 100 ? 'Masih aman — pemakaian bulan ini di bawah target.' : 'Melebihi target — perlu rem pengeluaran.'}
+			{data.summary.budgetPct <= 100 ? 'Masih aman, pemakaian bulan ini di bawah target.' : 'Melebihi target, perlu rem pengeluaran.'}
 		</p>
 		<span class="mt-3 inline-flex items-center gap-2 rounded-lg bg-canvas px-3 py-1.5 text-xs font-semibold text-ink-soft">
 			Rata-rata harian <span class="num text-ink">{formatRp(data.summary.dailyAvg)}</span>
@@ -247,7 +296,7 @@
 	</article>
 </section>
 
-<!-- ── Riwayat transaksi ── -->
+<!-- Riwayat transaksi -->
 <section class="mt-5 rounded-card bg-surface p-5">
 	<div class="flex items-center justify-between">
 		<span class="text-sm font-semibold">Riwayat Transaksi</span>
@@ -256,9 +305,33 @@
 
 	<div class="mt-4 overflow-x-auto">
 		{#if data.transactions.length === 0}
-			<p class="py-12 text-center text-sm text-ink-mute">Belum ada pengeluaran — kirim foto struk ke bot atau tambah manual.</p>
+			<p class="py-12 text-center text-sm text-ink-mute">Belum ada pengeluaran. Kirim foto struk ke bot atau tambah manual.</p>
 		{:else}
-			<table class="w-full text-sm">
+			<!-- HP: daftar kartu -->
+			<ul class="divide-y divide-line/70 md:hidden">
+				{#each data.transactions as t}
+					{@const tone = CATEGORY_TONE[t.category] ?? CATEGORY_TONE.Lainnya}
+					<li class="flex items-center gap-3 py-3">
+						<span class="grid size-9 shrink-0 place-items-center rounded-lg text-xs font-bold" style="background: {tone.bg}; color: {tone.fg};">{(t.merchant || '?')[0]}</span>
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-sm font-semibold">{t.merchant || 'Tanpa nama'}</p>
+							<p class="mt-0.5 truncate text-xs text-ink-mute">{formatDate(t.date)} · <span style="color: {tone.fg};">{t.category}</span> · {t.method}</p>
+						</div>
+						<div class="shrink-0 text-right">
+							<p class="num text-sm font-bold">{formatRp(t.total)}</p>
+							<p class="text-[11px] font-semibold {t.source === 'telegram' ? 'text-success' : 'text-lime-600'}">{t.source === 'telegram' ? 'Telegram' : 'Manual'}</p>
+						</div>
+						{#if !data.demo && t.id}
+							<button onclick={() => (editing = t)} class="-mr-1 grid size-9 shrink-0 place-items-center rounded-lg text-ink-mute transition hover:bg-canvas hover:text-forest-600" aria-label="Ubah" title="Ubah">
+								<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+							</button>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+
+			<!-- Layar lebar: tabel -->
+			<table class="hidden w-full text-sm md:table">
 				<thead>
 					<tr class="border-b border-line text-left text-xs font-semibold text-ink-mute">
 						<th class="pb-3 pl-1 font-semibold">Nama</th>

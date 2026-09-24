@@ -1,4 +1,4 @@
-// Pembuat "Wawasan" dashboard — rule-based, dirakit dari data ringkasan.
+// Pembuat "Wawasan" dashboard, rule-based, dirakit dari data ringkasan.
 // Murni & client-safe: tidak ada import server, tidak ada panggilan API.
 import { formatRp, MONTHS } from './format.js';
 
@@ -31,7 +31,7 @@ export function buildInsight(data) {
 	if (thisMonth <= 0) {
 		return {
 			tone: 'aman',
-			text: 'Belum ada pengeluaran tercatat bulan ini. Mulai dengan kirim foto struk ke bot Telegram atau tambah pengeluaran secara manual. 🌱'
+			text: 'Belum ada pengeluaran tercatat bulan ini. Mulai dengan kirim foto struk ke bot Telegram atau tambah pengeluaran secara manual.'
 		};
 	}
 
@@ -68,7 +68,7 @@ export function buildInsight(data) {
 		if (delta > 2) {
 			parts.push(`Dibanding ${prevName}, pengeluaran naik ${b(delta + '%')} dari ${formatRp(prev)}.`);
 		} else if (delta < -2) {
-			parts.push(`Dibanding ${prevName}, pengeluaran turun ${b(Math.abs(delta) + '%')} dari ${formatRp(prev)} — kerja bagus! 👏`);
+			parts.push(`Dibanding ${prevName}, pengeluaran turun ${b(Math.abs(delta) + '%')} dari ${formatRp(prev)}. Kerja bagus!`);
 		} else {
 			parts.push(`Pengeluaran hampir sama seperti ${prevName} (${formatRp(prev)}).`);
 		}
@@ -94,9 +94,9 @@ export function buildInsight(data) {
 	if (day > 0 && thisMonth > 0) {
 		const projected = Math.round((thisMonth / day) * daysInMonth);
 		if (budget > 0 && projected > budget) {
-			parts.push(`Dengan ritme ini, proyeksi akhir bulan sekitar ${b(formatRp(projected))}, sedikit di atas target. Masih ada ${b(daysLeft + ' hari')} tersisa untuk menyesuaikan pengeluaran. 💪`);
+			parts.push(`Dengan ritme ini, proyeksi akhir bulan sekitar ${b(formatRp(projected))}, sedikit di atas target. Masih ada ${b(daysLeft + ' hari')} tersisa untuk menyesuaikan pengeluaran.`);
 		} else if (budget > 0) {
-			parts.push(`Dengan ritme ini, proyeksi akhir bulan sekitar ${b(formatRp(projected))}, masih di bawah target. 👍`);
+			parts.push(`Dengan ritme ini, proyeksi akhir bulan sekitar ${b(formatRp(projected))}, masih di bawah target.`);
 		} else {
 			parts.push(`Proyeksi akhir bulan sekitar ${b(formatRp(projected))}.`);
 		}

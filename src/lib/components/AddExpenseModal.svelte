@@ -31,7 +31,7 @@
 
 	let total = $derived(items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0));
 
-	// Saat dibuka: mode add → tanggal hari ini; mode edit → isi dari transaksi.
+	// Saat dibuka: mode add memakai tanggal hari ini, mode edit mengisi dari transaksi.
 	$effect(() => {
 		if (!open) return;
 		error = '';
@@ -44,14 +44,14 @@
 		method = PAYMENT_METHODS.includes(expense.method) ? expense.method : '';
 		merchant = expense.merchant || '';
 		notes = expense.notes || '';
-		// Struk dari Telegram kadang tanpa rincian barang — buat satu baris dari
+		// Struk dari Telegram kadang tanpa rincian barang, jadi buat satu baris dari
 		// total supaya nominalnya tidak hilang saat diedit.
 		items = expense.items?.length
 			? expense.items.map((i) => ({ name: i.name, qty: i.qty || 1, price: i.price || 0 }))
 			: [{ name: expense.merchant || 'Total', qty: 1, price: expense.total || 0 }];
 	});
 
-	/** Format angka dengan pemisah ribuan koma: 20000 → "20,000" @param {number} n @returns {string} */
+	/** Format angka dengan pemisah ribuan koma, misalnya 20000 jadi "20,000" @param {number} n @returns {string} */
 	function fmtNum(n) {
 		return n ? n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '';
 	}
@@ -117,10 +117,10 @@
 </script>
 
 {#if open}
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+	<div class="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
 		<button class="absolute inset-0 bg-forest-900/30 backdrop-blur-[2px]" aria-label="Tutup" onclick={onclose}></button>
 
-		<form method="POST" action={formAction} use:enhance={submit} class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-surface p-6 shadow-xl">
+		<form method="POST" action={formAction} use:enhance={submit} class="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-card bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl sm:max-h-[90vh] sm:rounded-card sm:p-6">
 			{#if isEdit}<input type="hidden" name="id" value={expense?.id ?? ''} />{/if}
 			<div class="flex items-start justify-between">
 				<div>
@@ -147,7 +147,7 @@
 			<div class="mt-5 grid grid-cols-2 gap-3">
 				<label class="flex flex-col gap-1.5">
 					<span class="text-xs font-semibold text-ink-soft">Tanggal</span>
-					<input type="date" name="date" bind:value={date} class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
+					<input type="date" name="date" bind:value={date} class="w-full min-w-0 rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
 				</label>
 				<label class="flex flex-col gap-1.5">
 					<span class="text-xs font-semibold text-ink-soft">Kategori</span>
@@ -181,16 +181,17 @@
 				</div>
 				<div class="mt-2 space-y-2">
 					{#each items as item, i}
-						<div class="flex items-center gap-2">
-							<input bind:value={item.name} placeholder="Nama" class="flex-1 rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
-							<input type="number" min="1" bind:value={item.qty} class="num w-14 rounded-lg border border-line bg-canvas px-2 py-2 text-center text-sm outline-none focus:ring-2 focus:ring-lime-300" />
+						<!-- Di HP nama barang satu baris penuh, qty + harga di bawahnya. -->
+						<div class="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+							<input bind:value={item.name} placeholder="Nama" class="w-full rounded-lg sm:w-auto sm:flex-1 border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
+							<input type="number" min="1" bind:value={item.qty} class="num w-16 shrink-0 rounded-lg border sm:w-14 border-line bg-canvas px-2 py-2 text-center text-sm outline-none focus:ring-2 focus:ring-lime-300" />
 							<input
 								type="text"
 								inputmode="numeric"
 								value={fmtNum(item.price)}
 								placeholder="Harga"
 								oninput={(e) => onPriceInput(e, i)}
-								class="num w-28 rounded-lg border border-line bg-canvas px-3 py-2 text-right text-sm outline-none focus:ring-2 focus:ring-lime-300"
+								class="num min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 text-right sm:w-28 sm:flex-none text-sm outline-none focus:ring-2 focus:ring-lime-300"
 							/>
 							<button type="button" onclick={() => removeItem(i)} class="grid size-8 shrink-0 place-items-center rounded-lg text-ink-mute hover:bg-canvas hover:text-ink" aria-label="Hapus baris">✕</button>
 						</div>
@@ -208,7 +209,7 @@
 				<span class="text-sm font-semibold text-forest-700">Total</span>
 				<span class="num text-lg font-extrabold text-forest-800">{formatRp(total)}</span>
 			</div>
-			<div class="mt-4 flex justify-end gap-2">
+			<div class="mt-4 flex justify-end gap-2 max-sm:*:flex-1">
 				<button type="button" onclick={onclose} class="rounded-lg px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-canvas">Batal</button>
 				<button type="submit" disabled={submitting || total <= 0} class="rounded-lg bg-lime-500 px-5 py-2 text-sm font-bold text-forest-900 transition hover:bg-lime-400 disabled:opacity-50">
 					{submitting ? 'Menyimpan…' : isEdit ? 'Simpan Perubahan' : 'Simpan'}
