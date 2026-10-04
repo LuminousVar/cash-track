@@ -3,7 +3,8 @@
 import { formatRp, MONTHS } from './format.js';
 
 /**
- * @typedef {{ thisMonth: number, budget: number, budgetPct: number, dailyAvg: number, fromTelegram: number, fromManual: number, count: number }} Summary
+ * @typedef {{ key: string, dayIndex: number, days: number }} Cycle
+ * @typedef {{ thisMonth: number, budget: number, budgetPct: number, dailyAvg: number, fromTelegram: number, fromManual: number, count: number, cycle?: Cycle }} Summary
  * @typedef {{ month: string, amount: number, telegram?: number }} Flow
  * @typedef {{ name: string, amount: number, tone?: string }} TopCat
  * @typedef {{ summary: Summary, monthlyFlow: Flow[], topCategories: TopCat[] }} DashboardData
@@ -57,9 +58,11 @@ export function buildInsight(data) {
 		parts.push(`Pengeluaran bulan ini tercatat ${b(formatRp(thisMonth))}.`);
 	}
 
-	// 2) Tren vs bulan lalu.
+	// 2) Tren vs bulan lalu. "Bulan" = periode gajian dari server bila ada;
+	// tanpa itu (data lama) pakai kalender browser.
 	const now = new Date();
-	const mIdx = now.getMonth();
+	const cycle = s?.cycle;
+	const mIdx = cycle ? Number(cycle.key.slice(5, 7)) - 1 : now.getMonth();
 	const flow = Array.isArray(data.monthlyFlow) ? data.monthlyFlow : [];
 	const prev = mIdx > 0 ? Number(flow[mIdx - 1]?.amount) || 0 : 0;
 	if (mIdx > 0 && prev > 0) {
@@ -88,8 +91,8 @@ export function buildInsight(data) {
 	}
 
 	// 4) Proyeksi akhir bulan.
-	const day = now.getDate();
-	const daysInMonth = new Date(now.getFullYear(), mIdx + 1, 0).getDate();
+	const day = cycle ? cycle.dayIndex : now.getDate();
+	const daysInMonth = cycle ? cycle.days : new Date(now.getFullYear(), mIdx + 1, 0).getDate();
 	const daysLeft = daysInMonth - day;
 	if (day > 0 && thisMonth > 0) {
 		const projected = Math.round((thisMonth / day) * daysInMonth);

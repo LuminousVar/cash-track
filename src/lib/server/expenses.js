@@ -3,7 +3,8 @@
 import { env } from '$env/dynamic/private';
 import { readRows, appendRow, updateRow, deleteRow, isConfigured, SHEET_TAB } from './google.js';
 import { readConfig } from './config.js';
-import { MONTHS, CATEGORIES } from '$lib/format.js';
+import { currentCycle } from './cycle.js';
+import { MONTHS, CATEGORIES, cycleKey } from '$lib/format.js';
 
 export { isConfigured };
 
@@ -104,12 +105,13 @@ export async function listExpenses() {
 
 /**
  * Hitung ringkasan, arus bulanan, dan kategori teratas dari daftar pengeluaran.
+ * "Bulan" di sini = periode gajian (lihat cycle.js), bukan bulan kalender.
  * @param {Expense[]} expenses
  */
 function computeDashboard(expenses) {
-	const now = new Date();
-	const year = now.getFullYear();
-	const month = now.getMonth();
+	const cycle = currentCycle();
+	const [year, monthNum] = cycle.key.split('-').map(Number);
+	const month = monthNum - 1;
 	const flow = MONTHS.map((m) => ({ month: m, amount: 0, telegram: 0 }));
 	/** @type {Record<string, number>} */
 	const catThisMonth = {};
@@ -121,13 +123,14 @@ function computeDashboard(expenses) {
 	for (const e of expenses) {
 		const amt = e.total;
 		totalAllTime += amt;
-		const d = new Date(e.date);
-		if (Number.isNaN(d.getTime())) continue;
-		if (d.getFullYear() === year) {
-			flow[d.getMonth()].amount += amt;
-			if (e.source === 'telegram') flow[d.getMonth()].telegram += amt;
+		const key = cycleKey(e.date, cycle.startDay);
+		if (!key) continue;
+		const [ky, km] = key.split('-').map(Number);
+		if (ky === year) {
+			flow[km - 1].amount += amt;
+			if (e.source === 'telegram') flow[km - 1].telegram += amt;
 		}
-		if (d.getFullYear() === year && d.getMonth() === month) {
+		if (key === cycle.key) {
 			count++;
 			catThisMonth[e.category] = (catThisMonth[e.category] || 0) + amt;
 			e.source === 'manual' ? fromManual++ : fromTelegram++;
@@ -149,12 +152,13 @@ function computeDashboard(expenses) {
 			totalAllTime,
 			thisYear: flow.reduce((s, m) => s + m.amount, 0),
 			thisMonth,
-			dailyAvg: Math.round(thisMonth / Math.max(1, now.getDate())),
+			dailyAvg: Math.round(thisMonth / Math.max(1, cycle.dayIndex)),
 			budget,
 			budgetPct: Math.round((thisMonth / budget) * 100),
 			count,
 			fromTelegram,
-			fromManual
+			fromManual,
+			cycle
 		}
 	};
 }
@@ -172,17 +176,17 @@ export function getBudget() {
 /** Laporan: arus bulanan, ringkasan, dan total per kategori (tahun berjalan). */
 export async function getReport() {
 	if (!isConfigured()) {
-		return { demo: true, monthlyFlow: DEMO.monthlyFlow, summary: DEMO.summary, categoryTotals: DEMO_CATEGORY_TOTALS };
+		return { demo: true, monthlyFlow: DEMO.monthlyFlow, summary: demoSummary(), categoryTotals: DEMO_CATEGORY_TOTALS };
 	}
 	const expenses = await listExpenses();
 	const { summary, monthlyFlow } = computeDashboard(expenses);
-	// Periode sama dengan monthlyFlow (tahun berjalan). Kategori di luar daftar
+	// Periode sama dengan monthlyFlow (tahun periode berjalan). Kategori di luar daftar
 	// (mis. hasil edit manual di Sheet) masuk "Lainnya" supaya totalnya tetap cocok.
-	const year = new Date().getFullYear();
+	const year = summary.cycle.key.slice(0, 4);
 	/** @type {Record<string, number>} */
 	const map = {};
 	for (const e of expenses) {
-		if (new Date(e.date).getFullYear() !== year) continue;
+		if (cycleKey(e.date, summary.cycle.startDay).slice(0, 4) !== year) continue;
 		const cat = CATEGORIES.includes(e.category) ? e.category : 'Lainnya';
 		map[cat] = (map[cat] || 0) + e.total;
 	}
@@ -192,7 +196,7 @@ export async function getReport() {
 
 /** Data untuk halaman dashboard. Pakai DEMO bila Sheet belum dikonfigurasi. */
 export async function getDashboardData() {
-	if (!isConfigured()) return { ...DEMO, demo: true };
+	if (!isConfigured()) return { ...DEMO, summary: demoSummary(), demo: true };
 	const expenses = await listExpenses();
 	const { summary, monthlyFlow, topCategories } = computeDashboard(expenses);
 	return { transactions: expenses.slice(0, 12), summary, monthlyFlow, topCategories, demo: false };
@@ -393,3 +397,6 @@ const DEMO = {
 		budget: 9_500_000, budgetPct: 75, count: 142, fromTelegram: 118, fromManual: 24
 	}
 };
+
+/** Ringkasan demo + info periode berjalan, supaya bentuknya sama dengan data asli. */
+const demoSummary = () => ({ ...DEMO.summary, cycle: currentCycle() });

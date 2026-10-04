@@ -118,6 +118,7 @@ GOOGLE_SHEET_TAB=Sheet1
 MONTHLY_BUDGET=9500000      # monthly spending limit (Rupiah)
 BUDGET_WARN_PCT=80          # send a warning alert at this % of budget (default 80)
 BUDGET_NOTIFY_CHAT_ID=      # Telegram chat ID to send budget alerts to (defaults to first ID in ALLOWED_IDS)
+CYCLE_START_DAY=1           # payday, 1-28 (see "Payday budget period" below)
 
 # Auth
 AUTH_USERNAME=your-username
@@ -163,6 +164,14 @@ https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<your-ap
 ```
 
 Telegram will confirm `{"ok":true,"result":true}`.
+
+---
+
+## Payday budget period (optional)
+
+By default "this month" means the calendar month. If you get paid on, say, the 25th, set `CYCLE_START_DAY=25`. Each period then runs from the 25th to the 24th of the next month and is named after the month the salary pays for: 25 Sep to 24 Oct is the **October** period.
+
+The dashboard, budget page, Telegram budget alerts, monthly chart, reports, and the month filter on the expense list all follow the period. "Today" is computed in WIB (Asia/Jakarta), so the period switches at midnight local time, not UTC.
 
 ---
 

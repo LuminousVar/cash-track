@@ -146,7 +146,10 @@
 	<!-- Bulan ini + split kategori -->
 	<article class="rounded-card bg-surface p-5">
 		<div class="flex items-center justify-between">
-			<span class="text-sm font-semibold text-ink-soft">Bulan Ini</span>
+			<span class="text-sm font-semibold text-ink-soft">
+				Bulan Ini
+				{#if data.summary.cycle.rangeLabel}<span class="ml-1 text-xs font-medium text-ink-mute">{data.summary.cycle.rangeLabel}</span>{/if}
+			</span>
 			<span class="text-xs font-semibold text-ink-mute">{data.summary.count} transaksi</span>
 		</div>
 		<div class="mt-4 flex items-end justify-between">
@@ -175,7 +178,7 @@
 	<article class="rounded-card bg-surface p-5">
 		<div class="flex items-center justify-between">
 			<span class="text-sm font-semibold text-ink-soft">Sisa Anggaran</span>
-			<span class="flex items-center gap-1 rounded-lg bg-canvas px-2.5 py-1 text-xs font-semibold text-ink-soft">Bulan ini</span>
+			<span class="flex items-center gap-1 rounded-lg bg-canvas px-2.5 py-1 text-xs font-semibold text-ink-soft">{data.summary.cycle.rangeLabel || 'Bulan ini'}</span>
 		</div>
 		<p class="num mt-5 text-[34px] font-extrabold leading-none tracking-tight">{formatRp(Math.max(0, data.summary.budget - data.summary.thisMonth))}</p>
 		<div class="mt-4 flex gap-2 text-xs">

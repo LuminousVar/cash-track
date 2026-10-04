@@ -1,7 +1,7 @@
 <script>
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { CATEGORIES, PAYMENT_METHODS, formatRp } from '$lib/format.js';
+	import { CATEGORIES, PAYMENT_METHODS, formatRp, todayJakarta } from '$lib/format.js';
 
 	/**
 	 * @type {{
@@ -14,7 +14,8 @@
 	 */
 	let { open = false, demo = false, mode = 'add', expense = null, onclose } = $props();
 
-	const today = () => new Date().toISOString().slice(0, 10);
+	// Tanggal WIB. toISOString() memakai UTC, jadi jam 00:00-07:00 WIB jatuh ke kemarin.
+	const today = () => todayJakarta();
 
 	let date = $state(today());
 	let category = $state('Makanan');

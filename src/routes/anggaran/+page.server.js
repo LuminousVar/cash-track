@@ -11,13 +11,10 @@ function get(key) {
 
 export async function load() {
 	const data = await getDashboardData();
-	const now = new Date();
-	const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-	const daysLeft = daysInMonth - now.getDate();
-	const projected =
-		now.getDate() > 0
-			? Math.round((data.summary.thisMonth / now.getDate()) * daysInMonth)
-			: data.summary.thisMonth;
+	// Hitungan hari mengikuti periode gajian, bukan bulan kalender.
+	const { cycle } = data.summary;
+	const daysLeft = cycle.daysLeft;
+	const projected = Math.round((data.summary.thisMonth / Math.max(1, cycle.dayIndex)) * cycle.days);
 
 	const firstAllowedId = (get('TELEGRAM_ALLOWED_IDS') || '')
 		.split(',')
@@ -33,7 +30,8 @@ export async function load() {
 		summary: data.summary,
 		demo: data.demo,
 		daysLeft,
-		projected
+		projected,
+		cycleRange: cycle.rangeLabel
 	};
 }
 

@@ -65,6 +65,7 @@
 <section class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-3">
 	<article class="rounded-card bg-surface p-5">
 		<p class="text-sm font-semibold text-ink-soft">Pengeluaran Bulan Ini</p>
+		{#if data.cycleRange}<p class="text-xs text-ink-mute">{data.cycleRange}</p>{/if}
 		<p class="num mt-2 text-2xl font-extrabold">{formatRp(data.summary.thisMonth)}</p>
 		<span class="mt-2 inline-block rounded-lg px-2.5 py-1 text-xs font-semibold {statusBg}">{statusLabel}</span>
 	</article>
@@ -76,7 +77,7 @@
 	<article class="rounded-card bg-surface p-5">
 		<p class="text-sm font-semibold text-ink-soft">Sisa Anggaran</p>
 		<p class="num mt-2 text-2xl font-extrabold {exceeded ? 'text-[#dc2626]' : ''}">{exceeded ? '−' : ''}{formatRp(exceeded ? data.summary.thisMonth - data.budget : remaining)}</p>
-		<p class="mt-2 text-xs text-ink-mute">{data.daysLeft} hari tersisa bulan ini</p>
+		<p class="mt-2 text-xs text-ink-mute">{data.daysLeft} hari tersisa {data.cycleRange ? 'di periode ini' : 'bulan ini'}</p>
 	</article>
 </section>
 

@@ -3,7 +3,8 @@ import { env } from '$env/dynamic/private';
 import { readConfig, writeConfig } from './config.js';
 import { sendMessage } from './telegram.js';
 import { listExpenses, isConfigured, getBudget } from './expenses.js';
-import { formatRp } from '$lib/format.js';
+import { currentCycle } from './cycle.js';
+import { formatRp, cycleKey } from '$lib/format.js';
 
 /** Chat ID tujuan notif, dari config, fallback ke ID pertama whitelist. */
 function getNotifyChatId() {
@@ -31,18 +32,14 @@ export async function checkBudgetAlert() {
 	const token = env.TELEGRAM_BOT_TOKEN;
 	if (!chatId || !token || !isConfigured()) return;
 
-	const now = new Date();
-	const year = now.getFullYear();
-	const month = now.getMonth();
-	const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+	// Kunci periode gajian berjalan, juga dipakai sebagai penanda "sudah dikirim".
+	const cycle = currentCycle();
+	const monthKey = cycle.key;
 
 	try {
 		const expenses = await listExpenses();
 		const thisMonth = expenses
-			.filter((e) => {
-				const d = new Date(e.date);
-				return d.getFullYear() === year && d.getMonth() === month;
-			})
+			.filter((e) => cycleKey(e.date, cycle.startDay) === monthKey)
 			.reduce((s, e) => s + e.total, 0);
 
 		const budget = getBudget();

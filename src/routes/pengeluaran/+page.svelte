@@ -5,7 +5,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import { formatRp, formatDate, CATEGORY_TONE, CATEGORIES, MONTHS } from '$lib/format.js';
+	import { formatRp, formatDate, CATEGORY_TONE, CATEGORIES, cycleKey, cycleLabel, cycleRangeLabel } from '$lib/format.js';
 
 	let { data } = $props();
 
@@ -22,24 +22,21 @@
 	/** Baris yang rincian barangnya sedang dibuka. */
 	let expandedId = $state('');
 
-	/** Kunci bulan "YYYY-MM" dari tanggal transaksi. @param {string} date */
-	function monthKey(date) {
-		if (/^\d{4}-\d{2}/.test(date)) return date.slice(0, 7);
-		const d = new Date(date);
-		return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-	}
-	const now = new Date();
-	const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+	/** Kunci periode gajian "YYYY-MM" dari tanggal transaksi. @param {string} date */
+	const monthKey = (date) => cycleKey(date, data.cycleStartDay);
+	// Periode berjalan dihitung server (WIB), bukan dari jam browser.
+	const thisMonthKey = $derived(data.currentCycleKey);
 
 	// Pilihan bulan hanya yang punya transaksi, terbaru dulu. Bulan ini selalu ada.
 	const monthOptions = $derived(
 		[...new Set([thisMonthKey, ...data.expenses.map((e) => monthKey(e.date)).filter(Boolean)])]
 			.sort()
 			.reverse()
-			.map((key) => ({
-				key,
-				label: key === thisMonthKey ? 'Bulan ini' : `${MONTHS[Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`
-			}))
+			.map((key) => {
+				const range = cycleRangeLabel(key, data.cycleStartDay);
+				const name = key === thisMonthKey ? 'Bulan ini' : cycleLabel(key);
+				return { key, label: range ? `${name} (${range})` : name };
+			})
 	);
 
 	let q = $state('');
@@ -52,8 +49,8 @@
 		untrack(() =>
 			initCat
 				? 'Semua'
-				: data.expenses.some((e) => monthKey(e.date) === thisMonthKey)
-					? thisMonthKey
+				: data.expenses.some((e) => monthKey(e.date) === data.currentCycleKey)
+					? data.currentCycleKey
 					: (data.expenses.map((e) => monthKey(e.date)).filter(Boolean).sort().at(-1) ?? 'Semua')
 		)
 	);
