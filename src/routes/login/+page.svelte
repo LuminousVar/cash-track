@@ -2,7 +2,6 @@
 	import Icon from '$lib/components/Icon.svelte';
 
 	let { form } = $props();
-	let submitting = $state(false);
 </script>
 
 <div class="flex min-h-dvh items-center justify-center bg-canvas px-4">
@@ -22,7 +21,10 @@
 				<p role="alert" class="mt-4 rounded-lg bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
 			{/if}
 
-			<form method="POST" class="mt-5 space-y-4" onsubmit={() => (submitting = true)}>
+			<!-- Sengaja tanpa state "submitting": mengubah state saat submit membuat Svelte
+				 menulis ulang value username ke nilai awal (kosong) tepat sebelum browser
+				 mengambil isi form, sehingga login selalu gagal. -->
+			<form method="POST" class="mt-5 space-y-4">
 				<label class="block">
 					<span class="label">Username</span>
 					<input name="username" value={form?.username ?? ''} autocomplete="username" required class="field" />
@@ -31,7 +33,7 @@
 					<span class="label">Password</span>
 					<input type="password" name="password" autocomplete="current-password" required class="field" />
 				</label>
-				<button type="submit" disabled={submitting} class="btn btn-primary w-full">{submitting ? 'Memeriksa…' : 'Masuk'}</button>
+				<button type="submit" class="btn btn-primary w-full">Masuk</button>
 			</form>
 		</div>
 	</div>
