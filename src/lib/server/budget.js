@@ -49,8 +49,10 @@ export async function checkBudgetAlert() {
 		/** @type {Record<string, string>} */
 		const updates = {};
 
+		// Penanda hanya disimpan kalau pesan benar-benar terkirim, supaya kegagalan
+		// (chat ID salah, token bermasalah) dicoba lagi di transaksi berikutnya.
 		if (pct >= 100 && cfg.BUDGET_EXCEED_SENT !== monthKey) {
-			await sendMessage(
+			const sent = await sendMessage(
 				chatId,
 				`Budget Bulanan Terlampaui\n\n` +
 					`Pengeluaran : ${formatRp(thisMonth)}\n` +
@@ -58,10 +60,12 @@ export async function checkBudgetAlert() {
 					`Kelebihan   : ${formatRp(thisMonth - budget)}\n\n` +
 					`Yuk rem dulu pengeluarannya.`
 			);
-			updates.BUDGET_EXCEED_SENT = monthKey;
-			updates.BUDGET_WARN_SENT = monthKey;
+			if (sent) {
+				updates.BUDGET_EXCEED_SENT = monthKey;
+				updates.BUDGET_WARN_SENT = monthKey;
+			}
 		} else if (pct >= warnPct && cfg.BUDGET_WARN_SENT !== monthKey) {
-			await sendMessage(
+			const sent = await sendMessage(
 				chatId,
 				`Peringatan Anggaran: ${pct}% terpakai\n\n` +
 					`Terpakai : ${formatRp(thisMonth)}\n` +
@@ -69,7 +73,7 @@ export async function checkBudgetAlert() {
 					`Sisa     : ${formatRp(Math.max(0, budget - thisMonth))}\n\n` +
 					`Hati-hati ya.`
 			);
-			updates.BUDGET_WARN_SENT = monthKey;
+			if (sent) updates.BUDGET_WARN_SENT = monthKey;
 		}
 
 		if (Object.keys(updates).length > 0) writeConfig(updates);

@@ -22,6 +22,15 @@ const USER_COL = HEADER.indexOf('user');
 /** ID pendek: cukup unik untuk skala personal, cukup ringkas untuk pesan Telegram. */
 const newId = () => crypto.randomUUID().slice(0, 8);
 
+/**
+ * Tandai nilai sebagai teks biasa untuk Sheets (valueInputOption=USER_ENTERED).
+ * Tanpa awalan ', teks OCR seperti "+62 812..." atau "=..." dibaca sebagai angka
+ * atau rumus, dan id seperti "12e45678" jadi notasi ilmiah. Awalan ' tidak ikut
+ * tersimpan sebagai isi sel, jadi nilai yang dibaca kembali tetap sama.
+ * @param {string} v
+ */
+const text = (v) => (v ? `'${v}` : '');
+
 // Cache baris sheet
 // Per-instance & berumur pendek. Di Vercel ikut hilang saat instance daur ulang;
 // itu tidak masalah karena tak ada state yang bergantung padanya.
@@ -212,18 +221,18 @@ export async function addExpense(input) {
 	const row = [
 		new Date().toISOString(), // timestamp
 		input.date, // date
-		input.merchant || '', // merchant
+		text(input.merchant || ''), // merchant
 		String(Math.round(Number(input.total) || 0)), // total
 		'IDR', // currency
-		input.category || 'Lainnya', // category
-		input.method || '', // payment_method
-		JSON.stringify(input.items ?? []), // items
+		text(input.category || 'Lainnya'), // category
+		text(input.method || ''), // payment_method
+		text(JSON.stringify(input.items ?? [])), // items
 		'', // photo_url
 		'', // raw_text
 		'manual', // source
-		input.user || 'manual', // user
-		input.notes || '', // notes
-		id // id
+		text(input.user || 'manual'), // user
+		text(input.notes || ''), // notes
+		text(id) // id
 	];
 	await appendRow(row, SHEET_TAB);
 	invalidate();
@@ -241,18 +250,18 @@ export async function addReceipt(parsed, { fileId = '', rawText = '', user = '' 
 	const row = [
 		new Date().toISOString(), // timestamp
 		parsed.date, // date
-		parsed.merchant || '', // merchant
+		text(parsed.merchant || ''), // merchant
 		String(Math.round(Number(parsed.total) || 0)), // total
 		parsed.currency || 'IDR', // currency
-		parsed.category || 'Lainnya', // category
-		parsed.payment_method || '', // payment_method
-		JSON.stringify(parsed.items ?? []), // items
-		fileId, // photo_url (Telegram file_id)
-		rawText, // raw_text (OCR)
+		text(parsed.category || 'Lainnya'), // category
+		text(parsed.payment_method || ''), // payment_method
+		text(JSON.stringify(parsed.items ?? [])), // items
+		text(fileId), // photo_url (Telegram file_id)
+		text(rawText), // raw_text (OCR)
 		'telegram', // source
-		String(user), // user
+		text(String(user)), // user
 		'', // notes
-		id // id
+		text(id) // id
 	];
 	await appendRow(row, SHEET_TAB);
 	invalidate();
@@ -294,21 +303,22 @@ export async function updateExpense(id, patch) {
 	HEADER.forEach((h, i) => (o[h] = found.row[i] ?? ''));
 
 	const items = patch.items ?? parseItems(o.items);
+	// Baris ditulis ulang utuh, jadi kolom teks lama juga perlu ditandai ulang.
 	const row = [
 		o.timestamp,
 		patch.date ?? o.date,
-		patch.merchant ?? o.merchant,
+		text(patch.merchant ?? o.merchant),
 		String(Math.round(Number(patch.total ?? o.total) || 0)),
 		o.currency || 'IDR',
-		patch.category ?? o.category,
-		patch.method ?? o.payment_method,
-		JSON.stringify(items),
-		o.photo_url,
-		o.raw_text,
+		text(patch.category ?? o.category),
+		text(patch.method ?? o.payment_method),
+		text(JSON.stringify(items)),
+		text(o.photo_url),
+		text(o.raw_text),
 		o.source,
-		o.user,
-		patch.notes ?? o.notes,
-		id
+		text(o.user),
+		text(patch.notes ?? o.notes),
+		text(id)
 	];
 
 	await updateRow(found.rowNumber, row, SHEET_TAB);
@@ -329,6 +339,23 @@ export async function deleteExpense(id) {
 	await deleteRow(found.rowNumber, SHEET_TAB);
 	invalidate();
 	return { persisted: true, expense };
+}
+
+/**
+ * Cari struk Telegram yang sudah tersimpan berdasarkan file_id fotonya.
+ * Dipakai webhook supaya update yang dikirim ulang Telegram tidak tercatat dua kali.
+ * Baca langsung (bukan cache) karena instance lain bisa baru saja menulis.
+ * @param {string} fileId
+ */
+export async function findByPhoto(fileId) {
+	if (!isConfigured() || !fileId) return null;
+	const rows = await readRows();
+	_cache = { rows, at: Date.now() };
+	const col = HEADER.indexOf('photo_url');
+	for (let i = rows.length - 1; i >= 1; i--) {
+		if ((rows[i][col] ?? '') === fileId) return rowToExpense(rows[i], i + 1);
+	}
+	return null;
 }
 
 /**

@@ -1,6 +1,6 @@
 // Strukturkan teks struk (hasil OCR) jadi JSON via DeepSeek (chat JSON mode).
 import { env } from '$env/dynamic/private';
-import { CATEGORIES, PAYMENT_METHODS } from '$lib/format.js';
+import { CATEGORIES, PAYMENT_METHODS, todayJakarta } from '$lib/format.js';
 
 /**
  * @typedef {{ name: string, qty: number, price: number }} Item
@@ -29,7 +29,8 @@ const pickMethod = (m) => (PAYMENT_METHODS.includes(m) ? m : '');
 /** @param {unknown} d */
 function normDate(d) {
 	if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
-	return new Date().toISOString().slice(0, 10);
+	// Struk tanpa tanggal: pakai hari ini WIB (server Vercel berjalan di UTC).
+	return todayJakarta();
 }
 
 /**

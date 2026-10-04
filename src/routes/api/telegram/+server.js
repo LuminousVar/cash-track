@@ -3,7 +3,7 @@ import { env } from '$env/dynamic/private';
 import { getFile, downloadFileBase64, sendMessage } from '$lib/server/telegram.js';
 import { visionOcr } from '$lib/server/google.js';
 import { parseReceipt } from '$lib/server/deepseek.js';
-import { addReceipt, deleteExpense, lastTelegramExpense } from '$lib/server/expenses.js';
+import { addReceipt, deleteExpense, lastTelegramExpense, findByPhoto } from '$lib/server/expenses.js';
 import { checkBudgetAlert } from '$lib/server/budget.js';
 import { formatRp } from '$lib/format.js';
 
@@ -11,6 +11,20 @@ import { formatRp } from '$lib/format.js';
 export const config = { maxDuration: 60 };
 
 const ok = () => new Response('ok');
+
+// update_id yang sedang/baru diproses di instance ini. Telegram mengirim ulang
+// update kalau balasan lambat (OCR + AI bisa lama), dan kiriman ulang itu bisa
+// datang saat yang pertama masih jalan. Lintas instance ditangani findByPhoto.
+/** @type {Set<number>} */
+const seenUpdates = new Set();
+/** @param {number | undefined} id */
+function alreadySeen(id) {
+	if (typeof id !== 'number') return false;
+	if (seenUpdates.has(id)) return true;
+	seenUpdates.add(id);
+	if (seenUpdates.size > 500) seenUpdates.delete(seenUpdates.values().next().value ?? id);
+	return false;
+}
 
 /**
  * Whitelist: TELEGRAM_ALLOWED_IDS = "123,456". Kalau kosong, semua diizinkan (dev).
@@ -65,9 +79,12 @@ export async function POST({ request }) {
 		return ok();
 	}
 
-	const msg = update.message ?? update.edited_message;
+	// Hanya pesan baru. edited_message diabaikan: mengedit caption foto struk
+	// tidak boleh mencatat struk yang sama untuk kedua kalinya.
+	const msg = update.message;
 	const chatId = msg?.chat?.id;
 	if (!chatId) return ok();
+	if (alreadySeen(update.update_id)) return ok();
 
 	try {
 		if (!isAllowed(msg?.from?.id)) {
@@ -82,6 +99,11 @@ export async function POST({ request }) {
 		}
 
 		const fileId = photos[photos.length - 1].file_id; // resolusi terbesar
+		const existing = await findByPhoto(fileId);
+		if (existing) {
+			await sendMessage(chatId, `Struk ini sudah tercatat (ID ${existing.id || '-'}). Tidak dicatat ulang.`);
+			return ok();
+		}
 		const base64 = await downloadFileBase64(await getFile(fileId));
 		const rawText = await visionOcr(base64);
 		if (!rawText.trim()) {

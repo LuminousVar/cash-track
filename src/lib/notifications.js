@@ -26,7 +26,7 @@ function relative(iso) {
 
 /**
  * Rakit feed notifikasi dari transaksi + status anggaran.
- * @param {{ transactions?: Expense[], summary?: { thisMonth: number, budget: number, budgetPct: number } }} data
+ * @param {{ transactions?: Expense[], summary?: { thisMonth: number, budget: number, budgetPct: number, cycle?: { key: string } } }} data
  * @param {number} [warnPct]
  * @param {number} [limit]
  * @returns {Notification[]}
@@ -36,11 +36,13 @@ export function buildNotifications(data, warnPct = 80, limit = 15) {
 	const out = [];
 	const s = data.summary;
 
-	// Ambang anggaran selalu di atas karena paling perlu dilihat.
+	// Ambang anggaran selalu di atas karena paling perlu dilihat. ID memuat kunci
+	// periode supaya status "sudah dibaca" tidak terbawa ke periode berikutnya.
+	const period = s?.cycle?.key ?? '';
 	if (s && s.budget > 0 && s.thisMonth > 0) {
 		if (s.budgetPct >= 100) {
 			out.push({
-				id: 'budget-exceed',
+				id: `budget-exceed-${period}`,
 				icon: 'alert',
 				tone: 'warn',
 				title: 'Anggaran bulan ini terlampaui',
@@ -50,7 +52,7 @@ export function buildNotifications(data, warnPct = 80, limit = 15) {
 			});
 		} else if (s.budgetPct >= warnPct) {
 			out.push({
-				id: 'budget-warn',
+				id: `budget-warn-${period}`,
 				icon: 'alert',
 				tone: 'warn',
 				title: `Anggaran ${s.budgetPct}% terpakai`,

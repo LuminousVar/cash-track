@@ -163,6 +163,9 @@
 					<span class="text-xs font-semibold text-ink-soft">Metode bayar</span>
 					<div class="relative">
 						<select name="method" bind:value={method} class="w-full appearance-none rounded-lg border border-line bg-canvas py-2 pl-3 pr-8 text-sm text-ink outline-none transition focus:border-lime-400 focus:ring-2 focus:ring-lime-300">
+							<!-- Struk Telegram bisa tanpa metode bayar. Tanpa opsi kosong, browser
+								 menampilkan dan menyimpan "Tunai" diam-diam saat diedit. -->
+							<option value="">Tidak diketahui</option>
 							{#each PAYMENT_METHODS as m}<option>{m}</option>{/each}
 						</select>
 						<svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-mute" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>

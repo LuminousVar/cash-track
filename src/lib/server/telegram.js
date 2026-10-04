@@ -5,16 +5,29 @@ const api = () => `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}`;
 const fileApi = () => `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}`;
 
 /**
- * Kirim pesan teks ke chat.
+ * Kirim pesan teks ke chat. Mengembalikan true kalau Telegram menerimanya,
+ * supaya pemanggil bisa membedakan terkirim dan gagal (mis. chat ID salah).
  * @param {number | string} chatId
  * @param {string} text
+ * @returns {Promise<boolean>}
  */
 export async function sendMessage(chatId, text) {
-	await fetch(`${api()}/sendMessage`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ chat_id: chatId, text })
-	});
+	try {
+		const res = await fetch(`${api()}/sendMessage`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ chat_id: chatId, text })
+		});
+		const data = /** @type {any} */ (await res.json().catch(() => ({})));
+		if (!res.ok || !data.ok) {
+			console.error('Telegram sendMessage gagal', res.status, data.description ?? '');
+			return false;
+		}
+		return true;
+	} catch (err) {
+		console.error('Telegram sendMessage error', err);
+		return false;
+	}
 }
 
 /**
