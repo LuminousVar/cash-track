@@ -1,7 +1,9 @@
 <script>
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { CATEGORIES, PAYMENT_METHODS, formatRp, todayJakarta } from '$lib/format.js';
+	import Icon from './Icon.svelte';
+	import { CATEGORIES, PAYMENT_METHODS, formatRp, formatNumber, parseNumber, todayJakarta } from '$lib/format.js';
 
 	/**
 	 * @type {{
@@ -14,211 +16,283 @@
 	 */
 	let { open = false, demo = false, mode = 'add', expense = null, onclose } = $props();
 
-	// Tanggal WIB. toISOString() memakai UTC, jadi jam 00:00-07:00 WIB jatuh ke kemarin.
-	const today = () => todayJakarta();
-
-	let date = $state(today());
+	let date = $state(todayJakarta());
 	let category = $state('Makanan');
 	let method = $state('Tunai');
 	let merchant = $state('');
 	let notes = $state('');
 	let items = $state([{ name: '', qty: 1, price: 0 }]);
 	let submitting = $state(false);
+	let confirmDelete = $state(false);
 	let error = $state('');
+	/** @type {HTMLDivElement | undefined} */
+	let panel = $state();
 
 	const isEdit = $derived(mode === 'edit');
-	// Action update dipusatkan di /pengeluaran; halaman lain memposting ke sana.
+	// Action update dan delete dipusatkan di /pengeluaran; halaman lain memposting ke sana.
 	const formAction = $derived(isEdit ? '/pengeluaran?/update' : '/?/add');
+	const itemsSum = $derived(items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0));
+	// Total dibayar bisa berbeda dari jumlah barang (diskon, pajak, ongkir di struk).
+	// null = ikut jumlah barang. Mode ubah memakai total asli supaya tidak berubah diam-diam.
+	/** @type {number | null} */
+	let paidOverride = $state(null);
+	const total = $derived(paidOverride ?? itemsSum);
 
-	let total = $derived(items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0));
-
-	// Saat dibuka: mode add memakai tanggal hari ini, mode edit mengisi dari transaksi.
+	// Saat dibuka: mode tambah mulai kosong dengan tanggal hari ini (WIB), mode ubah
+	// mengisi dari transaksi. Fokus dipindah ke dialog supaya keyboard langsung bekerja.
+	// Hanya bergantung pada open/mode/expense. Sisanya di dalam untrack: tanpa itu,
+	// membaca `items` setelah mengisinya membuat effect berulang dan form ter-reset
+	// setiap kali user mengetik.
 	$effect(() => {
 		if (!open) return;
-		error = '';
-		if (!isEdit || !expense) {
-			date = today();
-			return;
-		}
-		date = expense.date || today();
-		category = CATEGORIES.includes(expense.category) ? expense.category : 'Lainnya';
-		method = PAYMENT_METHODS.includes(expense.method) ? expense.method : '';
-		merchant = expense.merchant || '';
-		notes = expense.notes || '';
-		// Struk dari Telegram kadang tanpa rincian barang, jadi buat satu baris dari
-		// total supaya nominalnya tidak hilang saat diedit.
-		items = expense.items?.length
-			? expense.items.map((i) => ({ name: i.name, qty: i.qty || 1, price: i.price || 0 }))
-			: [{ name: expense.merchant || 'Total', qty: 1, price: expense.total || 0 }];
+		const edit = isEdit;
+		const ex = expense;
+		untrack(() => fill(edit, ex));
 	});
 
-	/** Format angka dengan pemisah ribuan koma, misalnya 20000 jadi "20,000" @param {number} n @returns {string} */
-	function fmtNum(n) {
-		return n ? n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') : '';
-	}
-	/** Ambil angka bersih dari string berformat. @param {string} s @returns {number} */
-	function parseNum(s) {
-		return Number(s.replace(/[^\d]/g, '')) || 0;
-	}
 	/**
-	 * Handler input harga: format koma otomatis, perbarui state.
+	 * @param {boolean} edit
+	 * @param {import('$lib/server/expenses.js').Expense | null} expense
+	 */
+	function fill(edit, expense) {
+		error = '';
+		confirmDelete = false;
+		if (!edit || !expense) {
+			date = todayJakarta();
+			category = 'Makanan';
+			method = 'Tunai';
+			merchant = '';
+			notes = '';
+			items = [{ name: '', qty: 1, price: 0 }];
+			paidOverride = null;
+		} else {
+			date = expense.date || todayJakarta();
+			category = CATEGORIES.includes(expense.category) ? expense.category : 'Lainnya';
+			method = PAYMENT_METHODS.includes(expense.method) ? expense.method : '';
+			merchant = expense.merchant || '';
+			notes = expense.notes || '';
+			// Struk tanpa rincian barang: satu baris dari total supaya nominalnya tidak hilang.
+			items = expense.items?.length
+				? expense.items.map((i) => ({ name: i.name, qty: i.qty || 1, price: i.price || 0 }))
+				: [{ name: expense.merchant || 'Total', qty: 1, price: expense.total || 0 }];
+			const sum = items.reduce((s, i) => s + i.qty * i.price, 0);
+			paidOverride = expense.total && expense.total !== sum ? expense.total : null;
+		}
+		queueMicrotask(() => panel?.querySelector('input')?.focus());
+	}
+
+	/**
+	 * Format harga dengan titik ribuan sambil mengetik, kursor tetap di tempatnya.
 	 * @param {Event & { currentTarget: HTMLInputElement }} e
 	 * @param {number} idx
 	 */
 	function onPriceInput(e, idx) {
-		const raw = parseNum(e.currentTarget.value);
+		const el = e.currentTarget;
+		const raw = parseNumber(el.value);
 		items[idx] = { ...items[idx], price: raw };
-		// Simpan posisi kursor sebelum format ulang
-		const pos = e.currentTarget.selectionStart ?? 0;
-		const oldLen = e.currentTarget.value.length;
-		e.currentTarget.value = fmtNum(raw);
-		// Sesuaikan kursor agar tidak lompat aneh
-		const diff = e.currentTarget.value.length - oldLen;
-		e.currentTarget.setSelectionRange(pos + diff, pos + diff);
+		const pos = el.selectionStart ?? 0;
+		const oldLen = el.value.length;
+		el.value = formatNumber(raw);
+		const next = Math.max(0, pos + el.value.length - oldLen);
+		el.setSelectionRange(next, next);
 	}
 
-	function addItem() {
-		items = [...items, { name: '', qty: 1, price: 0 }];
+	/** @param {Event & { currentTarget: HTMLInputElement }} e */
+	function onTotalInput(e) {
+		const el = e.currentTarget;
+		const raw = parseNumber(el.value);
+		paidOverride = raw > 0 ? raw : null;
+		const pos = el.selectionStart ?? 0;
+		const oldLen = el.value.length;
+		el.value = formatNumber(raw);
+		const next = Math.max(0, pos + el.value.length - oldLen);
+		el.setSelectionRange(next, next);
 	}
+
+	const addItem = () => (items = [...items, { name: '', qty: 1, price: 0 }]);
 	/** @param {number} idx */
-	function removeItem(idx) {
+	const removeItem = (idx) => {
 		if (items.length > 1) items = items.filter((_, i) => i !== idx);
-	}
-	function reset() {
-		category = 'Makanan';
-		method = 'Tunai';
-		merchant = '';
-		notes = '';
-		items = [{ name: '', qty: 1, price: 0 }];
+	};
+
+	/** @param {KeyboardEvent} e */
+	function onKeydown(e) {
+		if (open && e.key === 'Escape' && !submitting) onclose?.();
 	}
 
-	// Inject rincian barang (JSON) ke formData, lalu refresh data setelah submit.
 	/** @type {import('@sveltejs/kit').SubmitFunction} */
 	function submit({ formData }) {
 		submitting = true;
 		error = '';
 		formData.set('items', JSON.stringify(items));
+		formData.set('total', String(total));
 		return async ({ result }) => {
 			submitting = false;
-			if (result.type === 'success') {
-				if (!isEdit) reset();
-				onclose?.();
-				// Action edit hidup di route lain, jadi data halaman ini harus
-				// diambil ulang secara eksplisit.
-				await invalidateAll();
-				return;
-			}
 			if (result.type === 'failure') {
 				error = String(result.data?.error ?? 'Gagal menyimpan.');
 				return;
 			}
+			if (result.type === 'success') onclose?.();
+			// Action bisa hidup di route lain, jadi data halaman ini diambil ulang eksplisit.
 			await invalidateAll();
 		};
 	}
 </script>
 
+<svelte:window onkeydown={onKeydown} />
+
 {#if open}
 	<div class="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
-		<button class="absolute inset-0 bg-forest-900/30 backdrop-blur-[2px]" aria-label="Tutup" onclick={onclose}></button>
+		<button class="absolute inset-0 bg-black/40" aria-label="Tutup" tabindex="-1" onclick={onclose}></button>
 
-		<form method="POST" action={formAction} use:enhance={submit} class="relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-card bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl sm:max-h-[90vh] sm:rounded-card sm:p-6">
-			{#if isEdit}<input type="hidden" name="id" value={expense?.id ?? ''} />{/if}
-			<div class="flex items-start justify-between">
-				<div>
-					<h2 class="text-lg font-bold">{isEdit ? 'Ubah Pengeluaran' : 'Tambah Pengeluaran'}</h2>
-					<p class="text-sm text-ink-soft">
-						{isEdit ? 'Perbaiki data yang salah baca atau salah kategori.' : 'Catat pengeluaran tanpa struk secara manual.'}
-					</p>
-				</div>
-				<button type="button" onclick={onclose} class="grid size-8 place-items-center rounded-lg text-ink-mute hover:bg-canvas hover:text-ink" aria-label="Tutup">✕</button>
+		<div
+			bind:this={panel}
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="expense-dialog-title"
+			class="relative flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl border border-line bg-surface shadow-xl sm:rounded-xl"
+		>
+			<div class="flex items-center justify-between border-b border-line px-5 py-4">
+				<h2 id="expense-dialog-title" class="text-base font-semibold">{isEdit ? 'Ubah transaksi' : 'Tambah pengeluaran'}</h2>
+				<button type="button" onclick={onclose} class="btn btn-ghost btn-icon h-8 w-8" aria-label="Tutup"><Icon name="x" /></button>
 			</div>
 
-			{#if demo}
-				<p class="mt-3 rounded-lg bg-warn-bg px-3 py-2 text-xs font-medium text-warn">Mode demo: data belum tersimpan ke Google Sheet (atur kredensial di .env).</p>
-			{/if}
-			{#if error}
-				<p class="mt-3 rounded-lg bg-warn-bg px-3 py-2 text-xs font-medium text-warn">{error}</p>
-			{/if}
-			{#if isEdit && expense?.source === 'telegram'}
-				<p class="mt-3 rounded-lg bg-active px-3 py-2 text-xs font-medium text-forest-700">
-					Hasil baca struk otomatis. Teks asli & foto tetap tersimpan meski data di sini diubah.
-				</p>
-			{/if}
+			<form id="expense-form" method="POST" action={formAction} use:enhance={submit} class="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+				{#if isEdit}<input type="hidden" name="id" value={expense?.id ?? ''} />{/if}
 
-			<div class="mt-5 grid grid-cols-2 gap-3">
-				<label class="flex flex-col gap-1.5">
-					<span class="text-xs font-semibold text-ink-soft">Tanggal</span>
-					<input type="date" name="date" bind:value={date} class="w-full min-w-0 rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
-				</label>
-				<label class="flex flex-col gap-1.5">
-					<span class="text-xs font-semibold text-ink-soft">Kategori</span>
-					<div class="relative">
-						<select name="category" bind:value={category} class="w-full appearance-none rounded-lg border border-line bg-canvas py-2 pl-3 pr-8 text-sm text-ink outline-none transition focus:border-lime-400 focus:ring-2 focus:ring-lime-300">
+				{#if demo}
+					<p class="rounded-lg bg-warn-bg px-3 py-2 text-sm text-warn">Mode demo: perubahan tidak disimpan ke Google Sheet.</p>
+				{/if}
+				{#if error}
+					<p role="alert" class="rounded-lg bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
+				{/if}
+				{#if isEdit && expense?.source === 'telegram'}
+					<p class="text-sm text-ink-mute">Dicatat dari struk Telegram. Teks asli dan foto tetap tersimpan meski data di sini diubah.</p>
+				{/if}
+
+				<div class="grid grid-cols-2 gap-3">
+					<label class="col-span-2">
+						<span class="label">Keterangan / tempat</span>
+						<input name="merchant" bind:value={merchant} placeholder="mis. Indomaret" class="field" />
+					</label>
+					<label>
+						<span class="label">Tanggal</span>
+						<input type="date" name="date" bind:value={date} required class="field" />
+					</label>
+					<label>
+						<span class="label">Kategori</span>
+						<select name="category" bind:value={category} class="field">
 							{#each CATEGORIES as c}<option>{c}</option>{/each}
 						</select>
-						<svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-mute" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-					</div>
-				</label>
-				<label class="flex flex-col gap-1.5">
-					<span class="text-xs font-semibold text-ink-soft">Metode bayar</span>
-					<div class="relative">
-						<select name="method" bind:value={method} class="w-full appearance-none rounded-lg border border-line bg-canvas py-2 pl-3 pr-8 text-sm text-ink outline-none transition focus:border-lime-400 focus:ring-2 focus:ring-lime-300">
-							<!-- Struk Telegram bisa tanpa metode bayar. Tanpa opsi kosong, browser
-								 menampilkan dan menyimpan "Tunai" diam-diam saat diedit. -->
+					</label>
+					<label class="col-span-2 sm:col-span-1">
+						<span class="label">Metode bayar</span>
+						<!-- Struk Telegram bisa tanpa metode bayar. Tanpa opsi kosong, browser
+							 menampilkan dan menyimpan "Tunai" diam-diam saat diedit. -->
+						<select name="method" bind:value={method} class="field">
 							<option value="">Tidak diketahui</option>
 							{#each PAYMENT_METHODS as m}<option>{m}</option>{/each}
 						</select>
-						<svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-mute" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+					</label>
+				</div>
+
+				<fieldset>
+					<div class="mb-1.5 flex items-center justify-between">
+						<legend class="text-[13px] font-medium text-ink-soft">Barang</legend>
+						<button type="button" onclick={addItem} class="text-sm font-medium text-accent hover:underline">Tambah baris</button>
 					</div>
-				</label>
-				<label class="flex flex-col gap-1.5">
-					<span class="text-xs font-semibold text-ink-soft">Keterangan / Tempat</span>
-					<input name="merchant" bind:value={merchant} placeholder="mis. Parkir motor" class="rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
-				</label>
-			</div>
+					<div class="space-y-2">
+						{#each items as item, i}
+							<div class="grid grid-cols-[1fr_3.5rem_7rem_2rem] items-center gap-2">
+								<input bind:value={item.name} placeholder="Nama barang" aria-label="Nama barang {i + 1}" class="field" />
+								<input type="number" min="1" bind:value={item.qty} aria-label="Jumlah barang {i + 1}" class="field num px-2 text-center" />
+								<input
+									type="text"
+									inputmode="numeric"
+									value={formatNumber(item.price)}
+									placeholder="Harga"
+									aria-label="Harga satuan barang {i + 1}"
+									oninput={(e) => onPriceInput(e, i)}
+									class="field num text-right"
+								/>
+								<button
+									type="button"
+									onclick={() => removeItem(i)}
+									disabled={items.length === 1}
+									class="btn btn-ghost btn-icon h-8 w-8"
+									aria-label="Hapus baris {i + 1}"
+								>
+									<Icon name="x" size={14} />
+								</button>
+							</div>
+						{/each}
+					</div>
+				</fieldset>
 
-			<!-- Rincian barang -->
-			<div class="mt-4">
-				<div class="flex items-center justify-between">
-					<span class="text-xs font-semibold text-ink-soft">Barang</span>
-					<button type="button" onclick={addItem} class="text-xs font-bold text-forest-600 hover:text-forest-700">+ Tambah barang</button>
+				<div>
+					<label for="expense-total" class="label">Total dibayar</label>
+					<div class="relative">
+						<span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-mute">Rp</span>
+						<input
+							id="expense-total"
+							type="text"
+							inputmode="numeric"
+							value={formatNumber(total)}
+							oninput={onTotalInput}
+							class="field num pl-9"
+						/>
+					</div>
+					{#if paidOverride !== null && paidOverride !== itemsSum}
+						<p class="mt-1.5 text-xs text-ink-mute">
+							Jumlah barang {formatRp(itemsSum)}, selisih {formatRp(Math.abs(itemsSum - paidOverride))}
+							({paidOverride < itemsSum ? 'diskon' : 'biaya tambahan'}).
+							<button type="button" onclick={() => (paidOverride = null)} class="font-medium text-ink-soft underline">Samakan dengan jumlah barang</button>
+						</p>
+					{:else}
+						<p class="mt-1.5 text-xs text-ink-mute">Otomatis dari jumlah barang. Ubah bila struk ada diskon atau pajak.</p>
+					{/if}
 				</div>
-				<div class="mt-2 space-y-2">
-					{#each items as item, i}
-						<!-- Di HP nama barang satu baris penuh, qty + harga di bawahnya. -->
-						<div class="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-							<input bind:value={item.name} placeholder="Nama" class="w-full rounded-lg sm:w-auto sm:flex-1 border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300" />
-							<input type="number" min="1" bind:value={item.qty} class="num w-16 shrink-0 rounded-lg border sm:w-14 border-line bg-canvas px-2 py-2 text-center text-sm outline-none focus:ring-2 focus:ring-lime-300" />
-							<input
-								type="text"
-								inputmode="numeric"
-								value={fmtNum(item.price)}
-								placeholder="Harga"
-								oninput={(e) => onPriceInput(e, i)}
-								class="num min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 text-right sm:w-28 sm:flex-none text-sm outline-none focus:ring-2 focus:ring-lime-300"
-							/>
-							<button type="button" onclick={() => removeItem(i)} class="grid size-8 shrink-0 place-items-center rounded-lg text-ink-mute hover:bg-canvas hover:text-ink" aria-label="Hapus baris">✕</button>
-						</div>
-					{/each}
+
+				<label class="block">
+					<span class="label">Catatan <span class="font-normal text-ink-mute">(opsional)</span></span>
+					<textarea name="notes" bind:value={notes} rows="2" class="field resize-none"></textarea>
+				</label>
+			</form>
+
+			<div class="flex items-center gap-3 border-t border-line px-5 py-3.5">
+				<div class="mr-auto">
+					<p class="eyebrow">Total</p>
+					<p class="num text-lg font-semibold">{formatRp(total)}</p>
 				</div>
+				{#if isEdit && !demo}
+					{#if confirmDelete}
+						<form
+							method="POST"
+							action="/pengeluaran?/delete"
+							use:enhance={() => {
+								submitting = true;
+								return async ({ result }) => {
+									submitting = false;
+									if (result.type === 'failure') error = String(result.data?.error ?? 'Gagal menghapus.');
+									else onclose?.();
+									await invalidateAll();
+								};
+							}}
+						>
+							<input type="hidden" name="id" value={expense?.id ?? ''} />
+							<button class="btn btn-danger" disabled={submitting}>Ya, hapus</button>
+						</form>
+						<button type="button" class="btn btn-ghost" onclick={() => (confirmDelete = false)}>Batal</button>
+					{:else}
+						<button type="button" class="btn btn-ghost text-danger" onclick={() => (confirmDelete = true)}>Hapus</button>
+					{/if}
+				{/if}
+				{#if !confirmDelete}
+					<button type="submit" form="expense-form" disabled={submitting || total <= 0} class="btn btn-primary">
+						{submitting ? 'Menyimpan…' : 'Simpan'}
+					</button>
+				{/if}
 			</div>
-
-			<label class="mt-4 flex flex-col gap-1.5">
-				<span class="text-xs font-semibold text-ink-soft">Catatan</span>
-				<textarea name="notes" bind:value={notes} rows="2" placeholder="opsional" class="resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-lime-300"></textarea>
-			</label>
-
-			<!-- Total + aksi -->
-			<div class="mt-5 flex items-center justify-between rounded-xl bg-active px-4 py-3">
-				<span class="text-sm font-semibold text-forest-700">Total</span>
-				<span class="num text-lg font-extrabold text-forest-800">{formatRp(total)}</span>
-			</div>
-			<div class="mt-4 flex justify-end gap-2 max-sm:*:flex-1">
-				<button type="button" onclick={onclose} class="rounded-lg px-4 py-2 text-sm font-semibold text-ink-soft hover:bg-canvas">Batal</button>
-				<button type="submit" disabled={submitting || total <= 0} class="rounded-lg bg-lime-500 px-5 py-2 text-sm font-bold text-forest-900 transition hover:bg-lime-400 disabled:opacity-50">
-					{submitting ? 'Menyimpan…' : isEdit ? 'Simpan Perubahan' : 'Simpan'}
-				</button>
-			</div>
-		</form>
+		</div>
 	</div>
 {/if}

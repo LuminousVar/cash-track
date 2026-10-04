@@ -1,275 +1,126 @@
 <script>
 	import PageHeader from '$lib/components/PageHeader.svelte';
-	import { enhance } from '$app/forms';
-	import { formatRp, CATEGORIES, PAYMENT_METHODS, CATEGORY_TONE } from '$lib/format.js';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import Icon from '$lib/components/Icon.svelte';
+	import { CATEGORIES, PAYMENT_METHODS, categoryColor } from '$lib/format.js';
 
-	let { data, form } = $props();
-
-	const initials = $derived((data.user ?? 'CT').slice(0, 2).toUpperCase());
-
-	/** @param {boolean} ok @returns {string} */
-	const statusClass = (ok) => ok ? 'bg-success-bg text-success' : 'bg-warn-bg text-warn';
-	/** @param {boolean} ok @returns {string} */
-	const statusLabel = (ok) => ok ? 'Terhubung' : 'Belum dikonfigurasi';
-
-	// Visibility toggle untuk field bertipe password
-	let showFields = $state(/** @type {Record<string, boolean>} */({}));
-	/** @param {string} key */
-	const toggleShow = (key) => showFields[key] = !showFields[key];
-
-	let saving = $state(false);
+	let { data } = $props();
 </script>
 
-<PageHeader title="Pengaturan" subtitle="Akun, anggaran, dan konfigurasi layanan." />
+<PageHeader title="Pengaturan" description="Akun, tampilan, dan status layanan yang terhubung." />
 
-{#if form?.success}
-	<div class="mt-4 rounded-xl bg-success-bg px-4 py-3 text-sm font-semibold text-success">
-		Konfigurasi berhasil disimpan.
-		{#if data.isVercel}<span class="font-normal opacity-80"> (Vercel: berlaku selama instance aktif. Gunakan env vars untuk permanen.)</span>{/if}
-	</div>
-{/if}
-{#if form?.error}
-	<div class="mt-4 rounded-xl bg-warn-bg px-4 py-3 text-sm font-semibold text-warn">{form.error}</div>
-{/if}
-
-<!-- Form logout di luar form utama agar tidak nested -->
-<form id="logout-form" method="POST" action="/logout"></form>
-
-<form method="POST" action="?/save" use:enhance={() => { saving = true; return ({ update }) => { saving = false; update(); }; }}>
-<section class="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-
-	<!-- Akun -->
-	<article class="rounded-card bg-surface p-5">
-		<span class="text-sm font-semibold">Akun</span>
-		<div class="mt-4 flex items-center gap-3">
-			<span class="grid size-11 place-items-center rounded-xl bg-forest-700 text-sm font-bold text-white">{initials}</span>
-			<div class="min-w-0 flex-1">
-				<p class="font-semibold">{data.user ?? '-'}</p>
-				<p class="text-xs text-ink-mute">{data.user ? 'Sedang masuk' : 'Auth belum dikonfigurasi'}</p>
+<div class="mt-6 space-y-6">
+	<section class="card divide-y divide-line" aria-label="Akun dan tampilan">
+		<div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+			<div>
+				<h2 class="text-sm font-semibold">Akun</h2>
+				<p class="mt-0.5 text-sm text-ink-mute">{data.user ? `Masuk sebagai ${data.user}` : 'Login belum dikonfigurasi.'}</p>
 			</div>
 			{#if data.user}
-				<button form="logout-form" type="submit" class="rounded-lg bg-canvas px-4 py-2 text-sm font-semibold text-ink-soft transition hover:text-ink">Keluar</button>
+				<form method="POST" action="/logout">
+					<button class="btn btn-secondary"><Icon name="logout" /> Keluar</button>
+				</form>
 			{/if}
 		</div>
-	</article>
-
-	<!-- Anggaran -->
-	<article class="rounded-card bg-surface p-5">
-		<label for="budget" class="text-sm font-semibold">Anggaran Bulanan</label>
-		<p class="num mt-4 text-3xl font-extrabold tracking-tight">{formatRp(data.budget)}</p>
-		<input
-			id="budget"
-			name="MONTHLY_BUDGET"
-			type="number"
-			min="0"
-			placeholder="Contoh: 9500000"
-			class="mt-3 w-full rounded-xl bg-canvas px-4 py-2.5 text-sm text-ink outline-none ring-1 ring-line placeholder:text-ink-mute focus:ring-2 focus:ring-lime-400"
-		/>
-		<p class="mt-2 text-xs text-ink-mute">Kosongkan untuk tetap pakai nilai sekarang. Env: <code class="font-mono text-ink">MONTHLY_BUDGET</code></p>
-	</article>
-
-	<!-- Bot Telegram -->
-	<article class="rounded-card bg-surface p-5 lg:col-span-2">
-		<div class="flex items-center justify-between">
-			<span class="text-sm font-semibold">Bot Telegram</span>
-			<span class="rounded-full px-2.5 py-1 text-xs font-semibold {statusClass(data.telegram.hasToken)}">{statusLabel(data.telegram.hasToken)}</span>
+		<div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+			<div>
+				<h2 class="text-sm font-semibold">Tema</h2>
+				<p class="mt-0.5 text-sm text-ink-mute">Disimpan di browser ini.</p>
+			</div>
+			<ThemeToggle />
 		</div>
-		<p class="mt-1.5 text-sm text-ink-soft">Foto struk dibaca OCR, diurai AI, lalu dicatat ke Sheet.</p>
-
-		<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-			<!-- Bot Token -->
-			<div class="space-y-1.5">
-				<label for="tg-token" class="block text-xs font-semibold text-ink-soft">
-					Bot Token <span class="font-normal text-ink-mute">({data.telegram.tokenMasked || 'belum diisi'})</span>
-				</label>
-				<div class="flex items-center gap-1 overflow-hidden rounded-xl bg-canvas ring-1 ring-line focus-within:ring-2 focus-within:ring-lime-400">
-					<input
-						id="tg-token"
-						name="TELEGRAM_BOT_TOKEN"
-						type={showFields['tg-token'] ? 'text' : 'password'}
-						placeholder="123456789:AABBcc…"
-						autocomplete="off"
-						class="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-sm text-ink outline-none placeholder:text-ink-mute"
-					/>
-					<button type="button" onclick={() => toggleShow('tg-token')} class="px-3 text-xs text-ink-mute hover:text-ink">{showFields['tg-token'] ? 'Sembunyikan' : 'Tampilkan'}</button>
-				</div>
-			</div>
-
-			<!-- Secret Token -->
-			<div class="space-y-1.5">
-				<label for="tg-secret" class="block text-xs font-semibold text-ink-soft">
-					Secret Token <span class="font-normal text-ink-mute">({data.telegram.hasSecret ? 'sudah diisi' : 'belum diisi'})</span>
-				</label>
-				<div class="flex items-center gap-1 overflow-hidden rounded-xl bg-canvas ring-1 ring-line focus-within:ring-2 focus-within:ring-lime-400">
-					<input
-						id="tg-secret"
-						name="TELEGRAM_SECRET_TOKEN"
-						type={showFields['tg-secret'] ? 'text' : 'password'}
-						placeholder="random-string-aman"
-						autocomplete="off"
-						class="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-sm text-ink outline-none placeholder:text-ink-mute"
-					/>
-					<button type="button" onclick={() => toggleShow('tg-secret')} class="px-3 text-xs text-ink-mute hover:text-ink">{showFields['tg-secret'] ? 'Sembunyikan' : 'Tampilkan'}</button>
-				</div>
-			</div>
-
-			<!-- Allowed IDs -->
-			<div class="space-y-1.5">
-				<label for="tg-ids" class="block text-xs font-semibold text-ink-soft">
-					Whitelist ID
-					{#if !data.telegram.allowedIds}<span class="font-medium text-warn"> Kosong berarti terbuka untuk semua!</span>{/if}
-				</label>
-				<input
-					id="tg-ids"
-					name="TELEGRAM_ALLOWED_IDS"
-					type="text"
-					value={data.telegram.allowedIds ?? ''}
-					placeholder="12345678,98765432"
-					class="w-full rounded-xl bg-canvas px-4 py-2.5 text-sm text-ink outline-none ring-1 ring-line placeholder:text-ink-mute focus:ring-2 focus:ring-lime-400"
-				/>
-				<p class="text-[11px] text-ink-mute">ID Telegram kamu, pisah koma.</p>
+		<div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+			<div>
+				<h2 class="text-sm font-semibold">Periode gajian</h2>
+				<p class="mt-0.5 text-sm text-ink-mute">
+					{#if data.cycleStartDay > 1}
+						Mulai tanggal {data.cycleStartDay} sampai tanggal {data.cycleStartDay - 1} bulan berikutnya.
+					{:else}
+						Mengikuti bulan kalender (tanggal 1 sampai akhir bulan).
+					{/if}
+					Ubah lewat <code class="text-ink-soft">CYCLE_START_DAY</code>.
+				</p>
 			</div>
 		</div>
+	</section>
 
-		<!-- Webhook hint -->
-		<div class="mt-4 rounded-xl bg-forest-900 px-4 py-3">
-			<p class="text-[11px] font-semibold text-white/50">Setup webhook (jalankan sekali setelah deploy)</p>
-			<p class="mt-1.5 break-all font-mono text-[11px] text-lime-400">https://api.telegram.org/bot&lt;TOKEN&gt;/setWebhook?url=https://&lt;app&gt;.vercel.app/api/telegram&amp;secret_token=&lt;SECRET&gt;</p>
+	<section class="card" aria-labelledby="int-heading">
+		<div class="border-b border-line px-5 py-4">
+			<h2 id="int-heading" class="text-sm font-semibold">Layanan terhubung</h2>
+			<p class="mt-0.5 text-sm text-ink-mute">Kunci API diatur di Environment Variables (Vercel atau file <code class="text-ink-soft">.env</code>), tidak dari halaman ini.</p>
 		</div>
-	</article>
-
-	<!-- DeepSeek / LLM -->
-	<article class="rounded-card bg-surface p-5">
-		<div class="flex items-center justify-between">
-			<span class="text-sm font-semibold">AI Parser: DeepSeek</span>
-			<span class="rounded-full px-2.5 py-1 text-xs font-semibold {statusClass(data.deepseek.configured)}">{statusLabel(data.deepseek.configured)}</span>
-		</div>
-		<p class="mt-1.5 text-sm text-ink-soft">Mengurai teks OCR dari struk jadi merchant, total, kategori, dan rincian item (JSON mode).</p>
-
-		<div class="mt-4 space-y-3">
-			<div class="space-y-1.5">
-				<label for="ds-key" class="block text-xs font-semibold text-ink-soft">
-					API Key <span class="font-normal text-ink-mute">({data.deepseek.keyMasked || 'belum diisi'})</span>
-				</label>
-				<div class="flex items-center gap-1 overflow-hidden rounded-xl bg-canvas ring-1 ring-line focus-within:ring-2 focus-within:ring-lime-400">
-					<input
-						id="ds-key"
-						name="DEEPSEEK_API_KEY"
-						type={showFields['ds-key'] ? 'text' : 'password'}
-						placeholder="sk-…"
-						autocomplete="off"
-						class="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-sm text-ink outline-none placeholder:text-ink-mute"
-					/>
-					<button type="button" onclick={() => toggleShow('ds-key')} class="px-3 text-xs text-ink-mute hover:text-ink">{showFields['ds-key'] ? 'Sembunyikan' : 'Tampilkan'}</button>
-				</div>
-			</div>
-			<div class="flex items-center justify-between rounded-xl bg-canvas px-4 py-2.5">
-				<p class="text-xs text-ink-soft">Model</p>
-				<code class="font-mono text-xs text-ink">{data.deepseek.model}</code>
-			</div>
-		</div>
-		<p class="mt-3 text-[11px] text-ink-mute">Daftar key di <span class="text-ink">platform.deepseek.com</span></p>
-	</article>
-
-	<!-- Google Sheets + Vision -->
-	<article class="rounded-card bg-surface p-5">
-		<div class="flex items-center justify-between">
-			<span class="text-sm font-semibold">Google Sheets & Vision OCR</span>
-			<span class="rounded-full px-2.5 py-1 text-xs font-semibold {statusClass(data.google.configured)}">{statusLabel(data.google.configured)}</span>
-		</div>
-		<p class="mt-1.5 text-sm text-ink-soft">Vision API ekstrak teks struk. Sheets API simpan pengeluaran ke spreadsheet kamu.</p>
-
-		<div class="mt-4 space-y-3">
-			<!-- Sheet ID -->
-			<div class="space-y-1.5">
-				<label for="g-sheet" class="block text-xs font-semibold text-ink-soft">
-					Sheet ID <span class="font-normal text-ink-mute">({data.google.sheetId ?? 'belum diisi'})</span>
-				</label>
-				<input
-					id="g-sheet"
-					name="GOOGLE_SHEET_ID"
-					type="text"
-					placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
-					class="w-full rounded-xl bg-canvas px-4 py-2.5 text-sm text-ink outline-none ring-1 ring-line placeholder:text-ink-mute focus:ring-2 focus:ring-lime-400"
-				/>
-			</div>
-
-			<!-- Sheet Tab -->
-			<div class="space-y-1.5">
-				<label for="g-tab" class="block text-xs font-semibold text-ink-soft">Nama Tab</label>
-				<input
-					id="g-tab"
-					name="GOOGLE_SHEET_TAB"
-					type="text"
-					value={data.google.sheetTab}
-					placeholder="Sheet1"
-					class="w-full rounded-xl bg-canvas px-4 py-2.5 text-sm text-ink outline-none ring-1 ring-line placeholder:text-ink-mute focus:ring-2 focus:ring-lime-400"
-				/>
-			</div>
-
-			<!-- Service Account JSON -->
-			<div class="space-y-1.5">
-				<label for="g-sa" class="block text-xs font-semibold text-ink-soft">
-					Service Account JSON
-					<span class="font-normal text-ink-mute">({data.google.hasServiceAccount ? 'sudah diisi' : 'belum diisi'})</span>
-				</label>
-				<textarea
-					id="g-sa"
-					name="GOOGLE_SERVICE_ACCOUNT"
-					rows="3"
-					placeholder={`{"type":"service_account","project_id":"…"}`}
-					class="w-full resize-none rounded-xl bg-canvas px-4 py-2.5 font-mono text-xs text-ink outline-none ring-1 ring-line placeholder:text-ink-mute focus:ring-2 focus:ring-lime-400"
-				></textarea>
-				<p class="text-[11px] text-ink-mute">Paste isi file JSON (satu baris atau diformat biasa).</p>
-			</div>
-		</div>
-	</article>
-
-	<!-- Kategori -->
-	<article class="rounded-card bg-surface p-5">
-		<span class="text-sm font-semibold">Kategori</span>
-		<p class="mt-1 text-xs text-ink-mute">Daftar tetap, dipakai bot & input manual.</p>
-		<div class="mt-4 flex flex-wrap gap-2">
-			{#each CATEGORIES as c}
-				{@const tone = CATEGORY_TONE[c] ?? CATEGORY_TONE.Lainnya}
-				<span class="rounded-md px-2.5 py-1 text-xs font-semibold" style="background: {tone.bg}; color: {tone.fg};">{c}</span>
+		<ul class="divide-y divide-line">
+			{#each data.integrations as it}
+				<li class="flex items-start gap-3 px-5 py-3.5">
+					<span class="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full {it.ok ? 'bg-success-bg text-success' : 'bg-warn-bg text-warn'}">
+						<Icon name={it.ok ? 'check' : 'alert'} size={12} strokeWidth={2.25} />
+					</span>
+					<div class="min-w-0">
+						<p class="text-sm font-medium">{it.name}</p>
+						<p class="text-sm text-ink-mute">{it.detail}</p>
+					</div>
+				</li>
 			{/each}
+		</ul>
+	</section>
+
+	<section class="card" aria-labelledby="ref-heading">
+		<h2 id="ref-heading" class="border-b border-line px-5 py-4 text-sm font-semibold">Kategori dan metode bayar</h2>
+		<div class="grid gap-5 p-5 sm:grid-cols-2">
+			<div>
+				<p class="eyebrow mb-2">Kategori (tetap)</p>
+				<ul class="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+					{#each CATEGORIES as c}
+						<li class="flex items-center gap-2"><span class="size-2 rounded-full" style="background: {categoryColor(c)}"></span>{c}</li>
+					{/each}
+				</ul>
+			</div>
+			<div>
+				<p class="eyebrow mb-2">Metode bayar</p>
+				<p class="text-sm text-ink-soft">{PAYMENT_METHODS.join(', ')}</p>
+			</div>
 		</div>
-	</article>
+	</section>
 
-	<!-- Metode bayar -->
-	<article class="rounded-card bg-surface p-5">
-		<span class="text-sm font-semibold">Metode Pembayaran</span>
-		<p class="mt-1 text-xs text-ink-mute">Pilihan saat input manual.</p>
-		<div class="mt-4 flex flex-wrap gap-2">
-			{#each PAYMENT_METHODS as m}
-				<span class="rounded-md bg-canvas px-2.5 py-1 text-xs font-semibold text-ink-soft">{m}</span>
-			{/each}
+	<section id="bantuan" class="card" aria-labelledby="help-heading">
+		<h2 id="help-heading" class="border-b border-line px-5 py-4 text-sm font-semibold">Bantuan</h2>
+		<div class="grid gap-6 p-5 lg:grid-cols-2">
+			<div>
+				<p class="eyebrow mb-2">Mencatat lewat Telegram</p>
+				<ol class="list-decimal space-y-1.5 pl-5 text-sm text-ink-soft">
+					<li>Kirim foto struk yang terang dan fokus ke bot.</li>
+					<li>Bot membaca teks, menentukan kategori, lalu menyimpan ke Google Sheet.</li>
+					<li>Bot membalas ringkasan beserta ID transaksi.</li>
+				</ol>
+			</div>
+			<div>
+				<p class="eyebrow mb-2">Perintah bot</p>
+				<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+					<dt><code>/hapus</code></dt>
+					<dd class="text-ink-soft">Batalkan catatan Telegram terakhir.</dd>
+					<dt><code>/hapus &lt;id&gt;</code></dt>
+					<dd class="text-ink-soft">Hapus transaksi dengan ID tersebut.</dd>
+					<dt><code>/start</code></dt>
+					<dd class="text-ink-soft">Pesan pembuka.</dd>
+				</dl>
+			</div>
+			<div class="lg:col-span-2">
+				<p class="eyebrow mb-2">Pertanyaan umum</p>
+				<dl class="space-y-3 text-sm">
+					<div>
+						<dt class="font-medium">Pengeluaran tanpa struk?</dt>
+						<dd class="text-ink-soft">Gunakan tombol "Tambah pengeluaran" di Ringkasan atau Transaksi.</dd>
+					</div>
+					<div>
+						<dt class="font-medium">Salah baca struk?</dt>
+						<dd class="text-ink-soft">Buka Transaksi, klik ikon pensil, lalu perbaiki atau hapus.</dd>
+					</div>
+					<div>
+						<dt class="font-medium">Transaksi tanpa ikon pensil?</dt>
+						<dd class="text-ink-soft">Baris lama belum punya ID. Jalankan <code>bun scripts/backfill-ids.js</code> sekali.</dd>
+					</div>
+				</dl>
+			</div>
 		</div>
-	</article>
-
-</section>
-
-<!-- Tombol simpan -->
-<div class="mt-5 flex items-center justify-between gap-4 rounded-card bg-surface p-4">
-	<p class="text-sm text-ink-soft">
-		{#if data.isVercel}
-			<span class="font-medium text-warn">Vercel:</span> konfigurasi tersimpan sementara (reset saat cold start). Gunakan Vercel Dashboard env vars untuk permanen.
-		{:else}
-			Tersimpan di <code class="rounded bg-canvas px-1.5 py-0.5 font-mono text-xs text-ink">config.local.json</code>, langsung aktif tanpa restart.
-		{/if}
-	</p>
-	<button
-		type="submit"
-		disabled={saving}
-		class="flex shrink-0 items-center gap-2 rounded-xl bg-lime-500 px-5 py-2.5 text-sm font-bold text-forest-900 shadow-sm transition hover:bg-lime-400 disabled:opacity-60"
-	>
-		{#if saving}
-			<svg class="animate-spin" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg>
-			Menyimpan…
-		{:else}
-			Simpan Konfigurasi
-		{/if}
-	</button>
+	</section>
 </div>
-</form>

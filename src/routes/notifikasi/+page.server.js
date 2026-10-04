@@ -1,13 +1,6 @@
-import { getDashboardData } from '$lib/server/expenses.js';
-import { readConfig } from '$lib/server/config.js';
-import { env } from '$env/dynamic/private';
+import { redirect } from '@sveltejs/kit';
 
-export async function load() {
-	const data = await getDashboardData();
-	const cfg = readConfig();
-	return {
-		transactions: data.transactions,
-		summary: data.summary,
-		warnPct: Number(cfg.BUDGET_WARN_PCT || env.BUDGET_WARN_PCT || '') || 80
-	};
+// Halaman lama, diganti peringatan Telegram dan status di Ringkasan. Dialihkan supaya bookmark tetap bekerja.
+export function load() {
+	throw redirect(308, '/');
 }

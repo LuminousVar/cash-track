@@ -25,12 +25,16 @@ function readFields(fd) {
 		merchant: String(fd.get('merchant') || ''),
 		notes: String(fd.get('notes') || ''),
 		items: items.map((i) => ({ name: String(i.name ?? ''), qty: Number(i.qty) || 0, price: Number(i.price) || 0 })),
-		total: items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0)
+		// Total dibayar dari form (bisa beda dari jumlah barang karena diskon/pajak);
+		// tanpa itu, jumlah barang.
+		total:
+			Math.round(Number(fd.get('total'))) ||
+			items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0)
 	};
 }
 
-// Action update & delete didefinisikan sekali di sini; halaman lain (dashboard,
-// riwayat) memposting ke "/pengeluaran?/update" lewat use:enhance.
+// Action update & delete didefinisikan sekali di sini; dialog ubah di halaman lain
+// (Ringkasan) memposting ke "/pengeluaran?/update" dan "?/delete" lewat use:enhance.
 export const actions = {
 	update: async ({ request }) => {
 		const fd = await request.formData();
@@ -39,7 +43,7 @@ export const actions = {
 
 		const fields = readFields(fd);
 		if (!fields.date || fields.total <= 0) {
-			return fail(400, { error: 'Isi tanggal dan minimal satu barang dengan harga.' });
+			return fail(400, { error: 'Isi tanggal dan total yang lebih dari 0.' });
 		}
 
 		const { persisted, notFound } = await updateExpense(id, fields);

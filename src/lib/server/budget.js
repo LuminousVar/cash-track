@@ -17,8 +17,8 @@ function getNotifyChatId() {
 	return ids[0] || '';
 }
 
-/** Threshold peringatan (%), default 80. */
-function getWarnPct() {
+/** Threshold peringatan (%), default 80. Dipakai juga oleh halaman untuk warna status. */
+export function getWarnPct() {
 	const cfg = readConfig();
 	return Number(cfg.BUDGET_WARN_PCT || env.BUDGET_WARN_PCT || '') || 80;
 }

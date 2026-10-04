@@ -1,5 +1,6 @@
 import { getDashboardData, getBudget } from '$lib/server/expenses.js';
-import { readConfig, writeConfig } from '$lib/server/config.js';
+import { readConfig, writeConfig, isVercel } from '$lib/server/config.js';
+import { getWarnPct } from '$lib/server/budget.js';
 import { env } from '$env/dynamic/private';
 import { fail } from '@sveltejs/kit';
 
@@ -11,39 +12,39 @@ function get(key) {
 
 export async function load() {
 	const data = await getDashboardData();
-	// Hitungan hari mengikuti periode gajian, bukan bulan kalender.
-	const { cycle } = data.summary;
-	const daysLeft = cycle.daysLeft;
-	const projected = Math.round((data.summary.thisMonth / Math.max(1, cycle.dayIndex)) * cycle.days);
-
-	const firstAllowedId = (get('TELEGRAM_ALLOWED_IDS') || '')
-		.split(',')
-		.map((s) => s.trim())
-		.filter(Boolean)[0] ?? '';
+	const firstAllowedId =
+		(get('TELEGRAM_ALLOWED_IDS') || '')
+			.split(',')
+			.map((s) => s.trim())
+			.filter(Boolean)[0] ?? '';
 
 	return {
 		budget: getBudget(),
-		warnPct: Number(get('BUDGET_WARN_PCT')) || 80,
+		warnPct: getWarnPct(),
 		notifyChatId: get('BUDGET_NOTIFY_CHAT_ID'),
 		firstAllowedId,
-		monthlyFlow: data.monthlyFlow,
 		summary: data.summary,
-		demo: data.demo,
-		daysLeft,
-		projected,
-		cycleRange: cycle.rangeLabel
+		isVercel
 	};
 }
 
 export const actions = {
 	save: async ({ request }) => {
 		const form = await request.formData();
-		const val = (/** @type {string} */ key) => form.get(key)?.toString() ?? '';
+		const val = (/** @type {string} */ key) => form.get(key)?.toString().trim() ?? '';
+
+		const budget = Number(val('MONTHLY_BUDGET'));
+		const warn = Number(val('BUDGET_WARN_PCT'));
+		const chatId = val('BUDGET_NOTIFY_CHAT_ID');
+		if (!Number.isFinite(budget) || budget <= 0) return fail(400, { error: 'Target anggaran harus lebih dari 0.' });
+		if (!Number.isInteger(warn) || warn < 1 || warn > 99) return fail(400, { error: 'Batas peringatan harus 1 sampai 99.' });
+		if (chatId && !/^-?\d+$/.test(chatId)) return fail(400, { error: 'ID Telegram hanya berisi angka.' });
+
 		try {
 			writeConfig({
-				MONTHLY_BUDGET: val('MONTHLY_BUDGET'),
-				BUDGET_WARN_PCT: val('BUDGET_WARN_PCT'),
-				BUDGET_NOTIFY_CHAT_ID: val('BUDGET_NOTIFY_CHAT_ID')
+				MONTHLY_BUDGET: String(Math.round(budget)),
+				BUDGET_WARN_PCT: String(warn),
+				BUDGET_NOTIFY_CHAT_ID: chatId
 			});
 			return { success: true };
 		} catch {

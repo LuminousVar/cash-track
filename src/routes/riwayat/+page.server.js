@@ -1,5 +1,6 @@
-import { getExpenses } from '$lib/server/expenses.js';
+import { redirect } from '@sveltejs/kit';
 
-export async function load() {
-	return { expenses: await getExpenses() };
+// Halaman lama, digabung ke Transaksi. Dialihkan supaya bookmark tetap bekerja.
+export function load() {
+	throw redirect(308, '/pengeluaran');
 }

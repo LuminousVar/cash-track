@@ -7,18 +7,50 @@ export const CATEGORIES = ['Makanan', 'Belanja', 'Transport', 'Tagihan', 'Keseha
 export const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Transfer', 'Kartu Debit', 'Kartu Kredit', 'E-wallet'];
 
 /**
- * Warna chip/avatar per kategori (selaras palet brand).
- * @type {Record<string, { bg: string, fg: string }>}
+ * Warna kategori sebagai CSS variable (didefinisikan per tema di layout.css).
+ * Kategori di luar daftar memakai warna "Lainnya".
+ * @param {string} category
  */
-export const CATEGORY_TONE = {
-	Makanan: { bg: '#ecf4e5', fg: '#2e5c45' },
-	Belanja: { bg: '#e4f5ee', fg: '#1f8d68' },
-	Transport: { bg: '#f1f8db', fg: '#6f9216' },
-	Tagihan: { bg: '#eef0f1', fg: '#4b5563' },
-	Kesehatan: { bg: '#e4f5ee', fg: '#1f8d68' },
-	Hiburan: { bg: '#f1f8db', fg: '#6f9216' },
-	Lainnya: { bg: '#eef0f1', fg: '#6b7280' }
+export function categoryColor(category) {
+	const key = CATEGORIES.includes(category) ? category.toLowerCase() : 'lainnya';
+	return `var(--color-cat-${key})`;
+}
+
+/**
+ * Status pemakaian anggaran: 'ok' di bawah ambang peringatan, 'warn' dari ambang
+ * sampai 100%, 'over' di atas 100%. Satu sumber supaya semua halaman konsisten.
+ * @param {number} pct
+ * @param {number} warnPct
+ * @returns {'ok' | 'warn' | 'over'}
+ */
+export function budgetStatus(pct, warnPct) {
+	if (pct > 100) return 'over';
+	if (pct >= warnPct) return 'warn';
+	return 'ok';
+}
+
+/** Label dan token warna per status anggaran. */
+export const STATUS_STYLE = {
+	ok: { label: 'Aman', fg: 'text-success', bg: 'bg-success-bg', bar: 'bg-success' },
+	warn: { label: 'Mendekati batas', fg: 'text-warn', bg: 'bg-warn-bg', bar: 'bg-warn' },
+	over: { label: 'Melebihi anggaran', fg: 'text-danger', bg: 'bg-danger-bg', bar: 'bg-danger' }
 };
+
+/**
+ * Angka dengan pemisah ribuan titik untuk input, misalnya 20000 jadi "20.000".
+ * @param {number} n
+ */
+export function formatNumber(n) {
+	return n ? new Intl.NumberFormat('id-ID').format(Math.round(n)) : '';
+}
+
+/**
+ * Ambil angka bulat dari teks berformat ("20.000", "Rp 20,000").
+ * @param {string} s
+ */
+export function parseNumber(s) {
+	return Number(String(s).replace(/[^\d]/g, '')) || 0;
+}
 
 /**
  * Format angka jadi Rupiah, misalnya 1250000 jadi "Rp 1.250.000".
@@ -147,6 +179,28 @@ export function cycleRangeLabel(key, startDay = 1) {
 	const [, sm, sd] = ymd(start) ?? [0, 1, 1];
 	const [, em, ed] = ymd(end) ?? [0, 1, 1];
 	return `${sd} ${MONTHS[sm - 1]} - ${ed} ${MONTHS[em - 1]}`;
+}
+
+/**
+ * Kunci periode sebelumnya, misalnya "2026-01" jadi "2025-12".
+ * @param {string} key
+ */
+export function prevCycleKey(key) {
+	const [y, m] = key.split('-').map(Number);
+	return m === 1 ? `${y - 1}-12` : `${y}-${pad(m - 1)}`;
+}
+
+/**
+ * Tanggal dengan nama hari, misalnya "Kamis, 24 Sep 2026". Dibaca dari komponen
+ * string supaya tidak bergeser karena zona waktu.
+ * @param {string} iso
+ */
+export function formatDay(iso) {
+	const p = ymd(iso);
+	if (!p) return iso ?? '';
+	const d = new Date(p[0], p[1] - 1, p[2]);
+	const day = new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(d);
+	return `${day}, ${p[2]} ${MONTHS[p[1] - 1]} ${p[0]}`;
 }
 
 /**

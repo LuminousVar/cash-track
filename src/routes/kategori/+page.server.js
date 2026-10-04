@@ -1,5 +1,6 @@
-import { getReport } from '$lib/server/expenses.js';
+import { redirect } from '@sveltejs/kit';
 
-export async function load() {
-	return { report: await getReport() };
+// Halaman lama, digabung ke Laporan. Dialihkan supaya bookmark tetap bekerja.
+export function load() {
+	throw redirect(308, '/laporan');
 }

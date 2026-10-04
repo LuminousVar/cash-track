@@ -4,7 +4,7 @@ import { env } from '$env/dynamic/private';
 import { readRows, appendRow, updateRow, deleteRow, isConfigured, SHEET_TAB } from './google.js';
 import { readConfig } from './config.js';
 import { currentCycle } from './cycle.js';
-import { MONTHS, CATEGORIES, cycleKey } from '$lib/format.js';
+import { MONTHS, CATEGORIES, cycleKey, prevCycleKey } from '$lib/format.js';
 
 export { isConfigured };
 
@@ -121,10 +121,12 @@ function computeDashboard(expenses) {
 	const cycle = currentCycle();
 	const [year, monthNum] = cycle.key.split('-').map(Number);
 	const month = monthNum - 1;
+	const prevKey = prevCycleKey(cycle.key);
 	const flow = MONTHS.map((m) => ({ month: m, amount: 0, telegram: 0 }));
 	/** @type {Record<string, number>} */
 	const catThisMonth = {};
 	let totalAllTime = 0,
+		prevPeriod = 0,
 		count = 0,
 		fromTelegram = 0,
 		fromManual = 0;
@@ -139,28 +141,31 @@ function computeDashboard(expenses) {
 			flow[km - 1].amount += amt;
 			if (e.source === 'telegram') flow[km - 1].telegram += amt;
 		}
+		if (key === prevKey) prevPeriod += amt;
 		if (key === cycle.key) {
 			count++;
-			catThisMonth[e.category] = (catThisMonth[e.category] || 0) + amt;
+			// Kategori di luar daftar (mis. diedit langsung di Sheet) masuk "Lainnya".
+			const cat = CATEGORIES.includes(e.category) ? e.category : 'Lainnya';
+			catThisMonth[cat] = (catThisMonth[cat] || 0) + amt;
 			e.source === 'manual' ? fromManual++ : fromTelegram++;
 		}
 	}
 
 	const thisMonth = flow[month].amount;
 	const budget = monthlyBudget();
-	const tones = ['forest', 'lime', 'emerald'];
-	const topCategories = Object.entries(catThisMonth)
+	// Semua kategori yang punya pengeluaran di periode ini, terbesar dulu.
+	const categories = Object.entries(catThisMonth)
 		.sort((a, b) => b[1] - a[1])
-		.slice(0, 3)
-		.map(([name, amount], i) => ({ name, amount, tone: tones[i] }));
+		.map(([name, amount]) => ({ name, amount }));
 
 	return {
 		monthlyFlow: flow,
-		topCategories,
+		categories,
 		summary: {
 			totalAllTime,
 			thisYear: flow.reduce((s, m) => s + m.amount, 0),
 			thisMonth,
+			prevPeriod,
 			dailyAvg: Math.round(thisMonth / Math.max(1, cycle.dayIndex)),
 			budget,
 			budgetPct: Math.round((thisMonth / budget) * 100),
@@ -205,10 +210,10 @@ export async function getReport() {
 
 /** Data untuk halaman dashboard. Pakai DEMO bila Sheet belum dikonfigurasi. */
 export async function getDashboardData() {
-	if (!isConfigured()) return { ...DEMO, summary: demoSummary(), demo: true };
+	if (!isConfigured()) return { ...DEMO, transactions: DEMO.transactions.slice(0, 8), summary: demoSummary(), demo: true };
 	const expenses = await listExpenses();
-	const { summary, monthlyFlow, topCategories } = computeDashboard(expenses);
-	return { transactions: expenses.slice(0, 12), summary, monthlyFlow, topCategories, demo: false };
+	const { summary, monthlyFlow, categories } = computeDashboard(expenses);
+	return { transactions: expenses.slice(0, 8), summary, monthlyFlow, categories, demo: false };
 }
 
 /**
@@ -414,13 +419,18 @@ const DEMO = {
 		{ month: 'Nov', amount: 7_000_000, telegram: 5_200_000 },
 		{ month: 'Des', amount: 8_200_000, telegram: 6_400_000 }
 	],
-	topCategories: [
-		{ name: 'Makanan', amount: 2_850_000, tone: 'forest' },
-		{ name: 'Transport', amount: 1_640_000, tone: 'lime' },
-		{ name: 'Belanja', amount: 1_430_000, tone: 'emerald' }
+	// Jumlahnya = summary.thisMonth.
+	categories: [
+		{ name: 'Makanan', amount: 2_850_000 },
+		{ name: 'Transport', amount: 1_640_000 },
+		{ name: 'Belanja', amount: 1_430_000 },
+		{ name: 'Tagihan', amount: 600_000 },
+		{ name: 'Hiburan', amount: 350_000 },
+		{ name: 'Kesehatan', amount: 200_000 },
+		{ name: 'Lainnya', amount: 55_000 }
 	],
 	summary: {
-		totalAllTime: 70_875_000, thisYear: 70_875_000, thisMonth: 7_125_000, dailyAvg: 237_500,
+		totalAllTime: 70_875_000, thisYear: 70_875_000, thisMonth: 7_125_000, prevPeriod: 5_400_000, dailyAvg: 237_500,
 		budget: 9_500_000, budgetPct: 75, count: 142, fromTelegram: 118, fromManual: 24
 	}
 };

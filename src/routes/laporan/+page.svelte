@@ -1,141 +1,160 @@
 <script>
 	import PageHeader from '$lib/components/PageHeader.svelte';
-	import { formatRp, formatRpShort, CATEGORY_TONE } from '$lib/format.js';
+	import { formatRp, formatRpShort, categoryColor, cycleRangeLabel, budgetStatus, STATUS_STYLE } from '$lib/format.js';
 
 	let { data } = $props();
 
-	const flow = $derived(data.report.monthlyFlow);
-	const maxFlow = $derived(Math.max(1, ...flow.map((m) => m.amount)));
-	const peakIndex = $derived(flow.reduce((bi, m, i, a) => (m.amount > a[bi].amount ? i : bi), 0));
-	const totalYear = $derived(flow.reduce((s, m) => s + m.amount, 0));
-	const activeMonths = $derived(flow.filter((m) => m.amount > 0).length || 1);
-	const hasData = $derived(totalYear > 0);
-	const topCat = $derived(data.report.categoryTotals[0]);
-	const maxCat = $derived(Math.max(1, ...data.report.categoryTotals.map((c) => c.amount)));
+	const r = $derived(data.report);
+	const year = $derived(r.summary.cycle.key.slice(0, 4));
+	const currentIdx = $derived(Number(r.summary.cycle.key.slice(5, 7)) - 1);
 
-	const maxScale = $derived(maxFlow * 1.12);
-	// Sama dengan kartu "Rata-rata / bulan": dibagi bulan yang ada transaksinya.
-	const avgFlow = $derived(Math.round(totalYear / activeMonths));
-	const avgLineTop = $derived(100 - Math.round((avgFlow / maxScale) * 100));
-	const dotLeft = $derived(((peakIndex + 0.5) / flow.length) * 100);
+	// Satu baris per periode di tahun ini, sampai periode berjalan (periode depan belum relevan).
+	const periods = $derived(
+		r.monthlyFlow
+			.map((m, i) => ({ ...m, key: `${year}-${String(i + 1).padStart(2, '0')}`, idx: i }))
+			.filter((m) => m.idx <= currentIdx)
+	);
+	const total = $derived(periods.reduce((s, m) => s + m.amount, 0));
+	const active = $derived(periods.filter((m) => m.amount > 0));
+	const avg = $derived(active.length ? Math.round(total / active.length) : 0);
+	const peak = $derived(active.reduce((b, m) => (!b || m.amount > b.amount ? m : b), /** @type {(typeof periods)[number] | null} */ (null)));
 
-	const ghostFill =
-		'repeating-linear-gradient(45deg, rgba(60,117,83,0.13) 0 1.5px, transparent 1.5px 6px), rgba(60,117,83,0.06)';
+	const cats = $derived(r.categoryTotals.filter((c) => c.amount > 0));
+	const catTotal = $derived(cats.reduce((s, c) => s + c.amount, 0));
+
+	// Skala chart mencakup garis anggaran supaya bulan di bawah anggaran terlihat proporsional.
+	const scale = $derived(Math.max(1, data.budget, ...r.monthlyFlow.map((m) => m.amount)) * 1.08);
+	const budgetTop = $derived(100 - (data.budget / scale) * 100);
 </script>
 
-<PageHeader title="Laporan" subtitle="Ringkasan pengeluaran sepanjang tahun." />
+<PageHeader title="Laporan" description="Tahun {year}, dihitung per periode gajian." />
 
-<!-- Statistik -->
-<section class="mt-6 grid grid-cols-2 gap-5 lg:grid-cols-4">
-	<div class="col-span-2 rounded-card bg-surface p-5 sm:col-span-1">
-		<p class="text-sm font-semibold text-ink-soft">Total setahun</p>
-		<p class="num mt-2 text-2xl font-extrabold">{formatRp(totalYear)}</p>
-	</div>
-	<div class="col-span-2 rounded-card bg-surface p-5 sm:col-span-1">
-		<p class="text-sm font-semibold text-ink-soft">Rata-rata / bulan</p>
-		<p class="num mt-2 text-2xl font-extrabold">{formatRp(Math.round(totalYear / activeMonths))}</p>
-	</div>
-	<div class="rounded-card bg-surface p-5">
-		<p class="text-sm font-semibold text-ink-soft">Bulan tertinggi</p>
-		<p class="mt-2 text-2xl font-extrabold">{hasData ? flow[peakIndex].month : '-'}</p>
-	</div>
-	<div class="rounded-card bg-surface p-5">
-		<p class="text-sm font-semibold text-ink-soft">Kategori teratas</p>
-		<p class="mt-2 text-2xl font-extrabold">{topCat?.amount > 0 ? topCat.name : '-'}</p>
-	</div>
-</section>
-
-<!-- Chart bulanan (stacked bar, identik dengan dashboard) -->
-<section class="mt-5 rounded-card bg-surface p-5 shadow-[0_18px_50px_-20px_rgba(28,59,48,0.35)]">
-	<div class="flex items-center justify-between gap-3">
-		<div class="flex flex-wrap items-center gap-3">
-			<span class="text-sm font-semibold">Arus Pengeluaran Bulanan</span>
-			<span class="flex items-center gap-1.5 text-xs text-ink-soft">
-				<span class="inline-block size-2 rounded-full bg-forest-800"></span>Manual
-			</span>
-			<span class="flex items-center gap-1.5 text-xs text-ink-soft">
-				<span class="inline-block size-2 rounded-full bg-lime-500"></span>via Telegram
-			</span>
+<div class="mt-6 space-y-6">
+	<section class="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line lg:grid-cols-4" aria-label="Ringkasan tahunan">
+		<div class="bg-surface p-4">
+			<p class="eyebrow">Total {year}</p>
+			<p class="num mt-1 text-xl font-semibold">{formatRp(total)}</p>
 		</div>
-		<span class="shrink-0 rounded-lg bg-canvas px-2.5 py-1 text-xs font-semibold text-ink-soft">Bulanan</span>
-	</div>
+		<div class="bg-surface p-4">
+			<p class="eyebrow">Rata-rata per periode</p>
+			<p class="num mt-1 text-xl font-semibold">{formatRp(avg)}</p>
+			<p class="mt-1 text-xs text-ink-mute">{active.length} periode ada transaksi</p>
+		</div>
+		<div class="bg-surface p-4">
+			<p class="eyebrow">Periode tertinggi</p>
+			<p class="mt-1 text-xl font-semibold">{peak ? peak.month : '-'}</p>
+			{#if peak}<p class="num mt-1 text-xs text-ink-mute">{formatRp(peak.amount)}</p>{/if}
+		</div>
+		<div class="bg-surface p-4">
+			<p class="eyebrow">Kategori terbesar</p>
+			<p class="mt-1 text-xl font-semibold">{cats[0]?.name ?? '-'}</p>
+			{#if cats[0]}<p class="num mt-1 text-xs text-ink-mute">{formatRp(cats[0].amount)}</p>{/if}
+		</div>
+	</section>
 
-	<!-- Panel chart -->
-	<div class="mt-5 rounded-2xl bg-canvas/50 p-4 pt-6 ring-1 ring-line/70">
-		<!-- Zona bar -->
-		<div class="relative flex h-48 items-end">
-			<!-- Garis rata-rata putus-putus + dot penanda -->
-			<div class="pointer-events-none absolute inset-x-0 z-10 border-t border-dashed border-forest-700/35" style="top:{avgLineTop}%">
-				<span class="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-forest-700 ring-4 ring-surface" style="left:{dotLeft}%"></span>
-			</div>
+	<section class="card p-4 sm:p-5" aria-labelledby="chart-heading">
+		<div class="flex flex-wrap items-baseline justify-between gap-2">
+			<h2 id="chart-heading" class="text-sm font-semibold">Pengeluaran per periode</h2>
+			<p class="flex items-center gap-2 text-xs text-ink-mute">
+				<span class="inline-block w-4 border-t border-dashed border-ink-mute"></span>
+				Anggaran {formatRp(data.budget)}
+			</p>
+		</div>
 
-			{#each flow as m, i}
-				{@const isPeak = i === peakIndex}
-				{@const hTotal = Math.max(7, Math.round((m.amount / maxScale) * 100))}
-				{@const tg = m.telegram ?? 0}
-				{@const manual = Math.max(0, m.amount - tg)}
-				{@const limePct = m.amount > 0 ? Math.round((tg / m.amount) * 100) : 0}
-				<div class="group relative flex h-full flex-1 items-end justify-center">
-					<!-- Ghost bar bertekstur diagonal -->
-					<div class="absolute inset-y-0 left-1/2 w-[88%] -translate-x-1/2 rounded-lg" style="background:{ghostFill}"></div>
-
-					<!-- Tooltip -->
-					<div class="pointer-events-none absolute bottom-[calc(100%+12px)] left-1/2 z-30 hidden -translate-x-1/2 group-hover:block">
-						<div class="relative min-w-[152px] rounded-xl bg-forest-900 px-3.5 py-2.5 shadow-2xl ring-1 ring-white/10">
-							<p class="text-[11px] font-medium text-white/50">{m.month} · Pengeluaran</p>
-							<p class="num mt-0.5 text-[15px] font-bold text-white">{formatRp(m.amount)}</p>
-							<div class="mt-2 space-y-1 border-t border-white/10 pt-2">
-								<p class="flex items-center gap-1.5 whitespace-nowrap text-[11px] text-white/70">
-									<span class="inline-block size-2 rounded-full bg-forest-500"></span>Manual
-									<span class="num ml-auto font-semibold text-white">{formatRp(manual)}</span>
-								</p>
-								<p class="flex items-center gap-1.5 whitespace-nowrap text-[11px] text-white/70">
-									<span class="inline-block size-2 rounded-full bg-lime-400"></span>Telegram
-									<span class="num ml-auto font-semibold text-white">{formatRp(tg)}</span>
-								</p>
-							</div>
-							<div class="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[6px] border-x-transparent border-t-forest-900"></div>
-						</div>
-					</div>
-
-					<!-- Batang stacked: forest (manual) atas + lime (telegram) bawah -->
-					<div
-						class="relative z-20 flex w-[88%] flex-col overflow-hidden rounded-lg shadow-sm transition-[filter] duration-200 group-hover:brightness-110"
-						style="height:{hTotal}%"
-					>
-						<div class="w-full flex-1" style="background:linear-gradient(to top,var(--color-forest-700),var(--color-forest-500))"></div>
-						{#if limePct > 0}
-							<div class="w-full shrink-0" style="height:{limePct}%; background:linear-gradient(to top,var(--color-lime-600),var(--color-lime-400))"></div>
+		<div class="relative mt-6 h-48">
+			<div class="pointer-events-none absolute inset-x-0 border-t border-dashed border-ink-mute/70" style="top: {budgetTop}%"></div>
+			<div class="flex h-full items-end gap-1.5 border-b border-line sm:gap-3">
+				{#each r.monthlyFlow as m, i}
+					{@const h = (m.amount / scale) * 100}
+					{@const status = budgetStatus(Math.round((m.amount / Math.max(1, data.budget)) * 100), data.warnPct)}
+					<div class="flex h-full flex-1 flex-col items-center justify-end" title="{m.month}: {formatRp(m.amount)}">
+						{#if m.amount > 0}
+							<span class="num mb-1 hidden text-[10px] text-ink-mute sm:block">{formatRpShort(m.amount)}</span>
+							<div
+								class="w-full max-w-10 rounded-t {status === 'over' ? 'bg-danger' : i === currentIdx ? 'bg-accent' : 'bg-ink-mute/45'}"
+								style="height: {h}%"
+							></div>
 						{/if}
 					</div>
-				</div>
-			{/each}
-		</div>
-		<!-- Zona label bulan -->
-		<div class="mt-3 flex">
-			{#each flow as m, i}
-				<span class="flex-1 text-center text-[10px] leading-none {i === peakIndex ? 'font-bold text-ink' : 'text-ink-mute'}">{m.month}</span>
-			{/each}
-		</div>
-	</div>
-</section>
-
-<!-- Breakdown kategori -->
-<section class="mt-5 rounded-card bg-surface p-5">
-	<span class="text-sm font-semibold">Pengeluaran per Kategori</span>
-	<span class="ml-2 text-xs text-ink-mute">tahun ini</span>
-	<div class="mt-5 space-y-4">
-		{#each data.report.categoryTotals as c}
-			{@const tone = CATEGORY_TONE[c.name] ?? CATEGORY_TONE.Lainnya}
-			<div>
-				<div class="flex items-center justify-between text-sm">
-					<span class="font-semibold">{c.name}</span>
-					<span class="num text-ink-soft">{formatRp(c.amount)}</span>
-				</div>
-				<div class="mt-2 h-2.5 overflow-hidden rounded-full bg-canvas">
-					<div class="h-full rounded-full" style="width: {Math.round((c.amount / maxCat) * 100)}%; background: {tone.fg};"></div>
-				</div>
+				{/each}
 			</div>
-		{/each}
+		</div>
+		<div class="mt-2 flex gap-1.5 sm:gap-3">
+			{#each r.monthlyFlow as m, i}
+				<span class="flex-1 text-center text-[11px] {i === currentIdx ? 'font-semibold text-ink' : 'text-ink-mute'}">{m.month}</span>
+			{/each}
+		</div>
+		<p class="sr-only">
+			{#each r.monthlyFlow as m}{m.month}: {formatRp(m.amount)}. {/each}
+		</p>
+	</section>
+
+	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+		<section class="card" aria-labelledby="period-heading">
+			<h2 id="period-heading" class="border-b border-line px-4 py-3 text-sm font-semibold">Riwayat periode</h2>
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="text-left text-xs text-ink-mute">
+							<th class="px-4 py-2 font-medium">Periode</th>
+							<th class="px-4 py-2 text-right font-medium">Pengeluaran</th>
+							<th class="px-4 py-2 text-right font-medium">Dari anggaran</th>
+							<th class="px-4 py-2 font-medium">Status</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-line">
+						{#each [...periods].reverse() as m}
+							{@const pct = Math.round((m.amount / Math.max(1, data.budget)) * 100)}
+							{@const st = STATUS_STYLE[budgetStatus(pct, data.warnPct)]}
+							{@const range = cycleRangeLabel(m.key, data.cycleStartDay)}
+							<tr>
+								<td class="px-4 py-2.5">
+									<a href="/pengeluaran?period={m.key}" class="hover:underline">{m.month}</a>
+									{#if range}<span class="block text-xs text-ink-mute">{range}</span>{/if}
+								</td>
+								<td class="num px-4 py-2.5 text-right">{m.amount > 0 ? formatRp(m.amount) : '-'}</td>
+								<td class="num px-4 py-2.5 text-right text-ink-soft">{m.amount > 0 ? `${pct}%` : '-'}</td>
+								<td class="px-4 py-2.5">
+									{#if m.amount > 0}
+										<span class="rounded-full px-2 py-0.5 text-xs font-medium {st.bg} {st.fg}">{st.label}</span>
+									{:else}
+										<span class="text-xs text-ink-mute">Tidak ada data</span>
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</section>
+
+		<section class="card" aria-labelledby="cat-heading">
+			<h2 id="cat-heading" class="border-b border-line px-4 py-3 text-sm font-semibold">Per kategori, {year}</h2>
+			{#if cats.length === 0}
+				<p class="px-4 py-10 text-center text-sm text-ink-mute">Belum ada pengeluaran tahun ini.</p>
+			{:else}
+				<ul class="space-y-3 p-4">
+					{#each cats as c}
+						<li>
+							<a href="/pengeluaran?category={encodeURIComponent(c.name)}" class="group block">
+								<div class="flex items-baseline justify-between gap-3 text-sm">
+									<span class="flex items-center gap-2 group-hover:underline">
+										<span class="size-2 rounded-full" style="background: {categoryColor(c.name)}"></span>
+										{c.name}
+									</span>
+									<span class="num text-ink-soft">
+										{formatRp(c.amount)}
+										<span class="ml-1 inline-block w-9 text-right text-xs text-ink-mute">{Math.round((c.amount / Math.max(1, catTotal)) * 100)}%</span>
+									</span>
+								</div>
+								<div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-subtle">
+									<div class="h-full rounded-full" style="width: {(c.amount / Math.max(1, cats[0].amount)) * 100}%; background: {categoryColor(c.name)}"></div>
+								</div>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</section>
 	</div>
-</section>
+</div>

@@ -1,79 +1,43 @@
-import { getBudget, isConfigured } from '$lib/server/expenses.js';
+// Halaman ini hanya menampilkan status. Kunci API dibaca bot, OCR, DeepSeek, dan
+// Sheets langsung dari Environment Variables, jadi status juga dibaca dari sana.
+// Form pengisian kunci dihapus karena nilainya tidak pernah dipakai (lihat notes.txt).
+import { isConfigured } from '$lib/server/expenses.js';
 import { DEEPSEEK_MODEL } from '$lib/server/deepseek.js';
-import { readConfig, writeConfig, isVercel } from '$lib/server/config.js';
+import { getCycleStartDay } from '$lib/server/cycle.js';
 import { env } from '$env/dynamic/private';
-import { fail } from '@sveltejs/kit';
-
-/** Baca nilai dari file config dulu, fallback ke env var. @param {string} key */
-function get(key) {
-	const file = readConfig();
-	return file[key] || env[key] || '';
-}
-
-/** Sensor: tampilkan 6 char pertama, sisanya ●. @param {string} val */
-function mask(val) {
-	return val ? val.slice(0, 6) + '••••••' : '';
-}
 
 export function load() {
+	const allowed = (env.TELEGRAM_ALLOWED_IDS || '')
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
 	return {
-		budget: getBudget(),
-		configured: isConfigured(),
-		isVercel,
-		telegram: {
-			hasToken: !!get('TELEGRAM_BOT_TOKEN'),
-			hasSecret: !!get('TELEGRAM_SECRET_TOKEN'),
-			allowedIds: get('TELEGRAM_ALLOWED_IDS') || null,
-			tokenMasked: mask(get('TELEGRAM_BOT_TOKEN')),
-		},
-		deepseek: {
-			configured: !!get('DEEPSEEK_API_KEY'),
-			keyMasked: mask(get('DEEPSEEK_API_KEY')),
-			model: DEEPSEEK_MODEL,
-		},
-		google: {
-			configured: !!get('GOOGLE_SERVICE_ACCOUNT') && !!get('GOOGLE_SHEET_ID'),
-			sheetId: get('GOOGLE_SHEET_ID') ? get('GOOGLE_SHEET_ID').slice(0, 12) + '…' : null,
-			sheetTab: get('GOOGLE_SHEET_TAB') || 'Sheet1',
-			hasServiceAccount: !!get('GOOGLE_SERVICE_ACCOUNT'),
-		},
+		integrations: [
+			{
+				name: 'Bot Telegram',
+				ok: !!env.TELEGRAM_BOT_TOKEN && !!env.TELEGRAM_SECRET_TOKEN,
+				detail: !env.TELEGRAM_BOT_TOKEN
+					? 'TELEGRAM_BOT_TOKEN belum diisi.'
+					: !env.TELEGRAM_SECRET_TOKEN
+						? 'TELEGRAM_SECRET_TOKEN belum diisi, webhook tidak diverifikasi.'
+						: 'Token dan secret webhook terpasang.'
+			},
+			{
+				name: 'Whitelist Telegram',
+				ok: allowed.length > 0,
+				detail: allowed.length > 0 ? `${allowed.length} ID diizinkan.` : 'Kosong: siapa pun bisa memakai bot.'
+			},
+			{
+				name: 'DeepSeek',
+				ok: !!env.DEEPSEEK_API_KEY,
+				detail: env.DEEPSEEK_API_KEY ? `Model ${DEEPSEEK_MODEL}.` : 'DEEPSEEK_API_KEY belum diisi.'
+			},
+			{
+				name: 'Google Sheets & Vision',
+				ok: isConfigured(),
+				detail: isConfigured() ? `Tab ${env.GOOGLE_SHEET_TAB || 'Sheet1'}.` : 'GOOGLE_SERVICE_ACCOUNT atau GOOGLE_SHEET_ID belum diisi.'
+			}
+		],
+		cycleStartDay: getCycleStartDay()
 	};
 }
-
-export const actions = {
-	/** Simpan konfigurasi ke file lokal. Field kosong = tetap pakai nilai lama. */
-	save: async ({ request }) => {
-		const form = await request.formData();
-
-		/** @param {string} key */
-		const val = (key) => form.get(key)?.toString() ?? '';
-
-		const keys = [
-			'TELEGRAM_BOT_TOKEN',
-			'TELEGRAM_SECRET_TOKEN',
-			'TELEGRAM_ALLOWED_IDS',
-			'DEEPSEEK_API_KEY',
-			'GOOGLE_SERVICE_ACCOUNT',
-			'GOOGLE_SHEET_ID',
-			'GOOGLE_SHEET_TAB',
-			'MONTHLY_BUDGET',
-		];
-
-		// writeConfig menghapus key yang nilainya kosong, jadi field kosong harus
-		// dibuang di sini. Kalau tidak, menyimpan halaman ini ikut menghapus
-		// MONTHLY_BUDGET yang diatur dari /anggaran.
-		/** @type {Record<string, string>} */
-		const updates = {};
-		for (const key of keys) {
-			const v = val(key).trim();
-			if (v) updates[key] = v;
-		}
-
-		try {
-			writeConfig(updates);
-			return { success: true };
-		} catch (e) {
-			return fail(500, { error: 'Gagal menyimpan konfigurasi.' });
-		}
-	},
-};

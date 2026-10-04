@@ -10,15 +10,15 @@ Personal expense tracker powered by a Telegram bot. Send a receipt photo to the 
 - **Vision OCR**: Google Cloud Vision extracts text from any receipt image
 - **AI parsing**: DeepSeek (`deepseek-flash`) structures the raw text into clean JSON
 - **Google Sheets backend**: all expenses stored in a spreadsheet you own and control
-- **SvelteKit dashboard**: monthly chart, category breakdown, recent transactions, spending summary
+- **SvelteKit dashboard**: remaining budget with a safe daily allowance, category breakdown, recent transactions, yearly report
 - **Manual entry**: add expenses via the web form with per-item breakdown (name, qty, price)
-- **Edit & delete**: fix a misread receipt from the dashboard, or undo the last entry straight from Telegram with `/hapus`
+- **Edit & delete**: fix or delete a misread receipt from the web app, or undo the last entry straight from Telegram with `/hapus`
 - **Item-level detail**: expand any transaction to see the parsed line items, and search across them
 - **Budget management**: set a monthly limit, track progress with a visual gauge, view 12-month history
 - **Budget alerts via Telegram**: get a notification when spending hits a configurable warning threshold (default 80%) and again when the budget is exceeded
-- **Smart insight card**: rule-based analysis on the dashboard: spending status, trend vs last month, top category, and end-of-month projection
-- **In-app settings**: configure all API keys and tokens directly from the `/pengaturan` page without touching env files
-- **Dark mode**: toggle in the page header, remembers your preference
+- **Budget status**: remaining budget, per-day allowance until the next payday, end-of-period projection, and change vs the previous period
+- **Settings page**: shows which integrations are configured (API keys stay in env vars), theme, and bot help
+- **Light, dark, or system theme**: remembered per browser
 - **Auth**: login-protected dashboard with argon2id password hashing and signed session cookies
 - **Demo mode**: works without any env vars for local preview (sample data shown)
 
@@ -128,7 +128,7 @@ SESSION_SECRET=             # random string >= 32 chars
 
 > **Never commit `.env`**. Only `.env.example` belongs in the repo.
 >
-> Budget and API settings can also be changed at runtime from the **Pengaturan** page in the dashboard (no restart needed). On Vercel, changes persist per instance; use env vars for permanent config.
+> The budget target, warning threshold, and alert chat ID can also be changed from the **Anggaran** page (no restart needed). On Vercel those changes last only until the instance restarts; use env vars for permanent config. API keys are read from env vars only.
 
 ### 7. Generate password hash
 

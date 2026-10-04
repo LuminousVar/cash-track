@@ -1,10 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import { getDashboardData, addExpense } from '$lib/server/expenses.js';
-import { checkBudgetAlert } from '$lib/server/budget.js';
+import { checkBudgetAlert, getWarnPct } from '$lib/server/budget.js';
 
-export async function load({ locals }) {
+export async function load() {
 	const data = await getDashboardData();
-	return { ...data, user: locals.user };
+	return { ...data, warnPct: getWarnPct() };
 }
 
 export const actions = {
@@ -24,10 +24,13 @@ export const actions = {
 		} catch {
 			/* abaikan */
 		}
-		const total = items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0);
+		// Total dibayar dari form (bisa beda dari jumlah barang karena diskon/pajak).
+		const total =
+			Math.round(Number(fd.get('total'))) ||
+			items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.price) || 0), 0);
 
 		if (!date || total <= 0) {
-			return fail(400, { error: 'Isi tanggal dan minimal satu barang dengan harga.' });
+			return fail(400, { error: 'Isi tanggal dan total yang lebih dari 0.' });
 		}
 
 		const { persisted } = await addExpense({ date, category, method, merchant, notes, items, total, user: locals.user || 'manual' });
