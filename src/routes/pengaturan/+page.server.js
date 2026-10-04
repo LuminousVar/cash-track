@@ -48,16 +48,26 @@ export const actions = {
 		/** @param {string} key */
 		const val = (key) => form.get(key)?.toString() ?? '';
 
-		const updates = {
-			TELEGRAM_BOT_TOKEN: val('TELEGRAM_BOT_TOKEN'),
-			TELEGRAM_SECRET_TOKEN: val('TELEGRAM_SECRET_TOKEN'),
-			TELEGRAM_ALLOWED_IDS: val('TELEGRAM_ALLOWED_IDS'),
-			DEEPSEEK_API_KEY: val('DEEPSEEK_API_KEY'),
-			GOOGLE_SERVICE_ACCOUNT: val('GOOGLE_SERVICE_ACCOUNT'),
-			GOOGLE_SHEET_ID: val('GOOGLE_SHEET_ID'),
-			GOOGLE_SHEET_TAB: val('GOOGLE_SHEET_TAB'),
-			MONTHLY_BUDGET: val('MONTHLY_BUDGET'),
-		};
+		const keys = [
+			'TELEGRAM_BOT_TOKEN',
+			'TELEGRAM_SECRET_TOKEN',
+			'TELEGRAM_ALLOWED_IDS',
+			'DEEPSEEK_API_KEY',
+			'GOOGLE_SERVICE_ACCOUNT',
+			'GOOGLE_SHEET_ID',
+			'GOOGLE_SHEET_TAB',
+			'MONTHLY_BUDGET',
+		];
+
+		// writeConfig menghapus key yang nilainya kosong, jadi field kosong harus
+		// dibuang di sini. Kalau tidak, menyimpan halaman ini ikut menghapus
+		// MONTHLY_BUDGET yang diatur dari /anggaran.
+		/** @type {Record<string, string>} */
+		const updates = {};
+		for (const key of keys) {
+			const v = val(key).trim();
+			if (v) updates[key] = v;
+		}
 
 		try {
 			writeConfig(updates);

@@ -19,7 +19,9 @@ export const actions = {
 			maxAge: SESSION_MAX_AGE
 		});
 
+		// Hanya path lokal. "//host" dan "/\host" dibaca browser sebagai URL ke domain lain.
 		const next = url.searchParams.get('next') || '/';
-		throw redirect(303, next.startsWith('/') ? next : '/');
+		const safe = next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\');
+		throw redirect(303, safe ? next : '/');
 	}
 };
