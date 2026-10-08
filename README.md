@@ -115,7 +115,7 @@ GOOGLE_SHEET_ID=
 GOOGLE_SHEET_TAB=Sheet1
 
 # Budget
-MONTHLY_BUDGET=9500000      # monthly spending limit (Rupiah)
+MONTHLY_BUDGET=1000000      # monthly spending limit (Rupiah)
 BUDGET_WARN_PCT=80          # send a warning alert at this % of budget (default 80)
 BUDGET_NOTIFY_CHAT_ID=      # Telegram chat ID to send budget alerts to (defaults to first ID in ALLOWED_IDS)
 CYCLE_START_DAY=1           # payday, 1-28 (see "Payday budget period" below)
