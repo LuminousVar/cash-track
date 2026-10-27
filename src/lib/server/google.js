@@ -77,9 +77,17 @@ export async function updateRow(rowNumber, values, tab = SHEET_TAB) {
 	await writeRange(`${tab}!A${rowNumber}:N${rowNumber}`, [values]);
 }
 
-// Gid tab tidak pernah berubah, jadi cache seperti _client.
-/** @type {number | undefined} */
-let _sheetId;
+// Gid tab tidak pernah berubah, jadi cache seperti _client. Per nama tab: aplikasi
+// memakai lebih dari satu tab (pengeluaran, Goals, riwayat setoran).
+/** @type {Map<string, number>} */
+const _sheetIds = new Map();
+
+/** Muat gid semua tab ke cache. */
+async function loadSheetIds() {
+	const client = await getClient();
+	const res = await client.request({ url: `${BASE}/${env.GOOGLE_SHEET_ID}?fields=sheets.properties` });
+	for (const s of /** @type {any} */ (res.data).sheets ?? []) _sheetIds.set(s.properties.title, Number(s.properties.sheetId));
+}
 
 /**
  * Ubah nama tab jadi sheetId (gid numerik). Dibutuhkan batchUpdate.
@@ -87,14 +95,30 @@ let _sheetId;
  * @returns {Promise<number>}
  */
 export async function getSheetId(tab = SHEET_TAB) {
-	if (_sheetId !== undefined) return _sheetId;
+	if (!_sheetIds.has(tab)) await loadSheetIds();
+	const id = _sheetIds.get(tab);
+	if (id === undefined) throw new Error(`Tab "${tab}" tidak ada di spreadsheet`);
+	return id;
+}
+
+/**
+ * Pastikan tab ada; kalau belum, buat dan tulis baris header.
+ * @param {string} tab
+ * @param {string[]} header
+ */
+export async function ensureTab(tab, header) {
+	if (_sheetIds.has(tab)) return;
+	await loadSheetIds();
+	if (_sheetIds.has(tab)) return;
 	const client = await getClient();
-	const res = await client.request({ url: `${BASE}/${env.GOOGLE_SHEET_ID}?fields=sheets.properties` });
-	const sheets = /** @type {any} */ (res.data).sheets ?? [];
-	const found = sheets.find((/** @type {any} */ s) => s.properties?.title === tab);
-	if (!found) throw new Error(`Tab "${tab}" tidak ada di spreadsheet`);
-	_sheetId = Number(found.properties.sheetId);
-	return _sheetId;
+	const res = await client.request({
+		url: `${BASE}/${env.GOOGLE_SHEET_ID}:batchUpdate`,
+		method: 'POST',
+		data: { requests: [{ addSheet: { properties: { title: tab } } }] }
+	});
+	const props = /** @type {any} */ (res.data).replies?.[0]?.addSheet?.properties;
+	if (props) _sheetIds.set(props.title, Number(props.sheetId));
+	await writeRange(`${tab}!A1`, [header]);
 }
 
 /**
@@ -103,17 +127,23 @@ export async function getSheetId(tab = SHEET_TAB) {
  * @param {string} [tab]
  */
 export async function deleteRow(rowNumber, tab = SHEET_TAB) {
+	await deleteRows([rowNumber], tab);
+}
+
+/**
+ * Hapus beberapa baris dalam satu request. Diproses dari bawah ke atas supaya
+ * nomor baris yang belum dihapus tidak bergeser.
+ * @param {number[]} rowNumbers  nomor baris di sheet, 1-based
+ * @param {string} [tab]
+ */
+export async function deleteRows(rowNumbers, tab = SHEET_TAB) {
+	if (rowNumbers.length === 0) return;
 	const client = await getClient();
 	const sheetId = await getSheetId(tab);
-	await client.request({
-		url: `${BASE}/${env.GOOGLE_SHEET_ID}:batchUpdate`,
-		method: 'POST',
-		data: {
-			requests: [
-				{ deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: rowNumber - 1, endIndex: rowNumber } } }
-			]
-		}
-	});
+	const requests = [...new Set(rowNumbers)]
+		.sort((a, b) => b - a)
+		.map((n) => ({ deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: n - 1, endIndex: n } } }));
+	await client.request({ url: `${BASE}/${env.GOOGLE_SHEET_ID}:batchUpdate`, method: 'POST', data: { requests } });
 }
 
 /**

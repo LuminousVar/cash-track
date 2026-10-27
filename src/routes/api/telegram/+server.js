@@ -5,7 +5,8 @@ import { visionOcr } from '$lib/server/google.js';
 import { parseReceipt } from '$lib/server/deepseek.js';
 import { addReceipt, deleteExpense, lastTelegramExpense, findByPhoto } from '$lib/server/expenses.js';
 import { checkBudgetAlert } from '$lib/server/budget.js';
-import { formatRp } from '$lib/format.js';
+import { listGoals, addContribution } from '$lib/server/goals.js';
+import { formatRp, parseAmount, cycleLabel } from '$lib/format.js';
 
 // Pipeline OCR+LLM bisa makan waktu, beri ruang di Vercel.
 export const config = { maxDuration: 60 };
@@ -35,7 +36,61 @@ function isAllowed(userId) {
 	return list.length === 0 || list.includes(String(userId));
 }
 
-const HINT = 'Kirim foto struk ya, nanti aku catat otomatis.\n\nPerintah lain:\n/hapus : batalkan catatan terakhir\n/hapus <id> : hapus catatan tertentu';
+const COMMANDS = [
+	'/hapus : batalkan catatan terakhir',
+	'/hapus <id> : hapus catatan tertentu',
+	'/goals : lihat progres goals',
+	'/nabung <nominal> <goal> : setor ke goal, mis. /nabung 500rb laptop',
+	'/tarik <nominal> <goal> : ambil dari goal'
+].join('\n');
+
+const HINT = `Kirim foto struk ya, nanti aku catat otomatis.\n\nPerintah lain:\n${COMMANDS}`;
+
+/** @param {import('$lib/server/goals.js').Goal} g */
+const goalLine = (g) => `${g.name}: ${formatRp(g.saved)} dari ${formatRp(g.target)} (${g.pct}%)`;
+
+/**
+ * /goals, /nabung, /tarik. Setoran dicatat ke tab GoalLog, terpisah dari pengeluaran.
+ * @param {string} cmd
+ * @param {string} rest  teks setelah perintah
+ * @param {number | string | undefined} userId
+ */
+async function handleGoal(cmd, rest, userId) {
+	const goals = (await listGoals()).filter((g) => !g.archived);
+	if (cmd === '/goals') {
+		if (goals.length === 0) return 'Belum ada goal. Buat dulu di halaman Goals.';
+		return ['Goals:', ...goals.map((g) => `- ${goalLine(g)}${g.perMonth ? `, perlu ${formatRp(g.perMonth)}/bulan` : ''}`)].join('\n');
+	}
+
+	const [rawAmount = '', ...words] = rest.split(/\s+/);
+	const amount = parseAmount(rawAmount);
+	if (amount <= 0) return `Format: ${cmd} <nominal> <nama goal>\nContoh: ${cmd} 500rb laptop`;
+
+	// Cocokkan sebagian nama, tanpa beda huruf besar kecil. Cukup satu goal: tidak perlu nama.
+	const query = words.join(' ').toLowerCase();
+	const hits = query ? goals.filter((g) => g.name.toLowerCase().includes(query)) : goals;
+	if (hits.length !== 1) {
+		const list = goals.map((g) => `- ${g.name}`).join('\n');
+		if (goals.length === 0) return 'Belum ada goal. Buat dulu di halaman Goals.';
+		return `${hits.length === 0 ? 'Goal tidak ditemukan.' : 'Sebutkan goal yang mana.'} Pilihan:\n${list}`;
+	}
+	const goal = hits[0];
+	if (cmd === '/tarik' && amount > goal.saved) return `Terkumpul di ${goal.name} baru ${formatRp(goal.saved)}.`;
+
+	const signed = cmd === '/tarik' ? -amount : amount;
+	const { persisted } = await addContribution(goal.id, { amount: signed, source: 'telegram', user: String(userId ?? '') });
+	if (!persisted) return 'Mode demo: belum tersambung ke Sheet, jadi tidak disimpan.';
+
+	const saved = goal.saved + signed;
+	const pct = goal.target > 0 ? Math.min(100, Math.round((saved / goal.target) * 100)) : 0;
+	const lines = [
+		`${cmd === '/tarik' ? 'Penarikan' : 'Setoran'} ${formatRp(amount)} untuk ${goal.name} tercatat.`,
+		`Terkumpul ${formatRp(saved)} dari ${formatRp(goal.target)} (${pct}%).`
+	];
+	if (saved >= goal.target) lines.push('Target tercapai!');
+	else if (goal.deadline) lines.push(`Kurang ${formatRp(goal.target - saved)} sampai ${cycleLabel(goal.deadline.slice(0, 7))}.`);
+	return lines.join('\n');
+}
 
 /**
  * Tangani pesan teks (bukan foto). Mengembalikan balasan yang akan dikirim.
@@ -45,12 +100,15 @@ const HINT = 'Kirim foto struk ya, nanti aku catat otomatis.\n\nPerintah lain:\n
  */
 async function handleText(text, userId) {
 	// Telegram menambahkan @namabot pada perintah di grup.
-	const [rawCmd, arg] = text.trim().split(/\s+/, 2);
+	const [, rawCmd = '', rest = ''] = /^(\S*)\s*([\s\S]*)$/.exec(text.trim()) ?? [];
 	const cmd = rawCmd.split('@')[0].toLowerCase();
+	const arg = rest.split(/\s+/)[0];
 
 	if (cmd === '/start') {
-		return 'Halo!\n\nKirim foto struk belanjaanmu ke sini. Aku baca, rapikan, dan catat otomatis ke spreadsheet.\n\n/hapus : batalkan catatan terakhir';
+		return `Halo!\n\nKirim foto struk belanjaanmu ke sini. Aku baca, rapikan, dan catat otomatis ke spreadsheet.\n\n${COMMANDS}`;
 	}
+
+	if (cmd === '/goals' || cmd === '/nabung' || cmd === '/tarik') return handleGoal(cmd, rest.trim(), userId);
 
 	if (cmd !== '/hapus') return HINT;
 

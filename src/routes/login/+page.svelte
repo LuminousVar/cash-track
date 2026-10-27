@@ -1,7 +1,7 @@
 <script>
 	import Icon from '$lib/components/Icon.svelte';
 
-	let { form } = $props();
+	let { data, form } = $props();
 </script>
 
 <div class="flex min-h-dvh items-center justify-center bg-canvas px-4">
@@ -19,6 +19,8 @@
 
 			{#if form?.error}
 				<p role="alert" class="mt-4 rounded-lg bg-danger-bg px-3 py-2 text-sm text-danger">{form.error}</p>
+			{:else if data.expired}
+				<p role="status" class="mt-4 rounded-lg bg-warn-bg px-3 py-2 text-sm text-warn">Sesi berakhir karena tidak aktif. Silakan masuk lagi.</p>
 			{/if}
 
 			<!-- Sengaja tanpa state "submitting": mengubah state saat submit membuat Svelte

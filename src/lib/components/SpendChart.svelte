@@ -1,21 +1,18 @@
 <script>
-	// Chart garis pengeluaran: periode berjalan vs periode lalu (kumulatif per hari),
-	// atau per periode sepanjang tahun vs tahun lalu. Garis putus-putus = anggaran.
-	import { MONTHS, formatRp, formatRpShort, cycleLabel, cycleRange, cycleRangeLabel, addDays, formatDayMonth } from '$lib/format.js';
+	// Chart garis pengeluaran kumulatif per hari: periode berjalan vs periode lalu.
+	// Garis putus-putus = anggaran. Perbandingan antar periode ada di MonthlyChart.
+	import { formatRp, formatRpShort, cycleLabel, cycleRange, addDays, formatDayMonth } from '$lib/format.js';
 	import { cumulative, niceTicks, linePath, labelIndexes } from '$lib/chart.js';
 
 	/**
 	 * @type {{
-	 *   trend: { prevKey: string, daily: number[], prevDaily: number[], prevYearFlow: number[] },
-	 *   monthlyFlow: { month: string, amount: number }[],
+	 *   trend: { prevKey: string, daily: number[], prevDaily: number[] },
 	 *   budget: number,
 	 *   cycle: { key: string, startDay: number, start: string, dayIndex: number, label: string }
 	 * }}
 	 */
-	let { trend, monthlyFlow, budget, cycle } = $props();
+	let { trend, budget, cycle } = $props();
 
-	/** @type {'period' | 'year'} */
-	let mode = $state('period');
 	let width = $state(640);
 	/** @type {number | null} */
 	let active = $state(null);
@@ -25,58 +22,27 @@
 
 	const view = $derived.by(() => {
 		const curMonth = cycle.label.split(' ')[0];
-		if (mode === 'period') {
-			const prevStart = cycleRange(trend.prevKey, cycle.startDay).start;
-			const prevMonth = cycleLabel(trend.prevKey).split(' ')[0];
-			const cur = cumulative(trend.daily.slice(0, cycle.dayIndex));
-			const prev = cumulative(trend.prevDaily);
-			const compare = prev[Math.min(cycle.dayIndex, prev.length) - 1] ?? 0;
-			return {
-				n: Math.max(trend.daily.length, prev.length),
-				cur,
-				prev,
-				curName: `Periode ${curMonth}`,
-				prevName: `Periode ${prevMonth}`,
-				/** @param {number} i */
-				xLabel: (i) => formatDayMonth(addDays(cycle.start, i)),
-				/** @param {number} i */
-				tipTitle: (i) => `Hari ke-${i + 1}`,
-				/** @param {number} i */
-				curSub: (i) => `s.d. ${formatDayMonth(addDays(cycle.start, i))}`,
-				/** @param {number} i */
-				prevSub: (i) => `s.d. ${formatDayMonth(addDays(prevStart, i))}`,
-				eyebrow: `Terpakai periode ${curMonth} sampai hari ini`,
-				value: cur.at(-1) ?? 0,
-				prevTotal: prev.at(-1) ?? 0,
-				compare,
-				compareText: `di hari ke-${cycle.dayIndex} periode ${prevMonth}`,
-				budgetName: 'Anggaran'
-			};
-		}
-		const year = Number(cycle.key.slice(0, 4));
-		const idx = Number(cycle.key.slice(5, 7)) - 1;
-		const cur = monthlyFlow.slice(0, idx + 1).map((m) => m.amount);
-		const prev = trend.prevYearFlow;
-		/** @param {number} i */
-		const keyAt = (i) => `${year}-${String(i + 1).padStart(2, '0')}`;
+		const prevStart = cycleRange(trend.prevKey, cycle.startDay).start;
+		const prevMonth = cycleLabel(trend.prevKey).split(' ')[0];
+		const cur = cumulative(trend.daily.slice(0, cycle.dayIndex));
+		const prev = cumulative(trend.prevDaily);
 		return {
-			n: 12,
+			n: Math.max(trend.daily.length, prev.length),
 			cur,
 			prev,
-			curName: String(year),
-			prevName: String(year - 1),
+			curName: `Periode ${curMonth}`,
+			prevName: `Periode ${prevMonth}`,
 			/** @param {number} i */
-			xLabel: (i) => MONTHS[i],
+			xLabel: (i) => formatDayMonth(addDays(cycle.start, i)),
 			/** @param {number} i */
-			tipTitle: (i) => [cycleLabel(keyAt(i)).split(' ')[0], cycleRangeLabel(keyAt(i), cycle.startDay)].filter(Boolean).join(', '),
-			curSub: () => '',
-			prevSub: () => '',
-			eyebrow: `Total ${year} sampai periode ${curMonth}`,
-			value: cur.reduce((s, v) => s + v, 0),
-			prevTotal: prev.reduce((s, v) => s + v, 0),
-			compare: prev.slice(0, idx + 1).reduce((s, v) => s + v, 0),
-			compareText: `di periode yang sama ${year - 1}`,
-			budgetName: 'Anggaran per periode'
+			curSub: (i) => `s.d. ${formatDayMonth(addDays(cycle.start, i))}`,
+			/** @param {number} i */
+			prevSub: (i) => `s.d. ${formatDayMonth(addDays(prevStart, i))}`,
+			value: cur.at(-1) ?? 0,
+			prevTotal: prev.at(-1) ?? 0,
+			compare: prev[Math.min(cycle.dayIndex, prev.length) - 1] ?? 0,
+			compareText: `di hari ke-${cycle.dayIndex} periode ${prevMonth}`,
+			eyebrow: `Terpakai periode ${curMonth} sampai hari ini`
 		};
 	});
 
@@ -97,12 +63,6 @@
 	const prevPath = $derived(hasPrev ? linePath(view.prev.map((v, i) => [x(i), y(v)])) : '');
 	const xLabels = $derived(labelIndexes(view.n, plotW));
 	const budgetY = $derived(y(budget));
-
-	/** @param {'period' | 'year'} m */
-	function setMode(m) {
-		mode = m;
-		active = null;
-	}
 
 	/** @param {PointerEvent} e */
 	function onPointer(e) {
@@ -130,21 +90,7 @@
 </script>
 
 <section class="card p-4 sm:p-5" aria-labelledby="trend-heading">
-	<div class="flex items-center justify-between gap-3">
-		<h2 id="trend-heading" class="text-sm font-semibold">Pergerakan pengeluaran</h2>
-		<div class="inline-flex rounded-lg border border-line p-0.5 text-xs" role="group" aria-label="Rentang chart">
-			{#each [['period', 'Periode'], ['year', 'Tahunan']] as [m, label]}
-				<button
-					type="button"
-					aria-pressed={mode === m}
-					onclick={() => setMode(/** @type {'period' | 'year'} */ (m))}
-					class="rounded-md px-2.5 py-1 font-medium transition-colors {mode === m ? 'bg-subtle text-ink' : 'text-ink-mute hover:text-ink'}"
-				>
-					{label}
-				</button>
-			{/each}
-		</div>
-	</div>
+	<h2 id="trend-heading" class="text-sm font-semibold">Pergerakan pengeluaran</h2>
 
 	<p class="mt-3 text-xs text-ink-mute">{view.eyebrow}</p>
 	<p class="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{formatRp(view.value)}</p>
@@ -221,7 +167,7 @@
 				style="left: {x(active)}px; transform: translateX({right ? 'calc(-100% - 12px)' : '12px'})"
 				aria-hidden="true"
 			>
-				<p class="text-[11px] opacity-70">{view.tipTitle(active)}</p>
+				<p class="text-[11px] opacity-70">Hari ke-{active + 1}</p>
 				{#if active < view.cur.length}
 					<div class="mt-1.5 flex items-center gap-2">
 						<span class="h-0.5 w-3 rounded-full bg-chart-1"></span>
@@ -255,7 +201,7 @@
 		{/if}
 		<li class="flex items-center gap-2">
 			<span class="w-3.5 border-t border-dashed border-ink-soft"></span>
-			{view.budgetName}
+			Anggaran
 			<span class="num text-ink">{formatRp(budget)}</span>
 		</li>
 	</ul>

@@ -2,7 +2,7 @@
 import { listExpenses, isConfigured, getBudget, dailyTotals, demoExpensesIn } from './expenses.js';
 import { getWarnPct } from './budget.js';
 import { getCycleStartDay } from './cycle.js';
-import { CATEGORIES, cycleKey, cycleRange, prevCycleKey, budgetStatus } from '$lib/format.js';
+import { normCategory, countsToBudget, cycleKey, cycleRange, prevCycleKey, budgetStatus } from '$lib/format.js';
 
 /** @typedef {import('./expenses.js').Expense} Expense */
 
@@ -30,7 +30,7 @@ function groupBy(list, labelOf) {
 }
 
 /** @param {Expense} e */
-const categoryOf = (e) => (CATEGORIES.includes(e.category) ? e.category : 'Lainnya');
+const categoryOf = (e) => normCategory(e.category);
 
 /**
  * Ringkasan lengkap satu periode beserta pembanding periode sebelumnya.
@@ -43,8 +43,11 @@ export async function getPeriodReport(key) {
 		? await listExpenses()
 		: [...demoExpensesIn(key, startDay), ...demoExpensesIn(prevKey, startDay)];
 
-	const expenses = all.filter((e) => cycleKey(e.date, startDay) === key).sort((a, b) => a.date.localeCompare(b.date));
-	const prev = all.filter((e) => cycleKey(e.date, startDay) === prevKey);
+	const inPeriod = all.filter((e) => cycleKey(e.date, startDay) === key).sort((a, b) => a.date.localeCompare(b.date));
+	// Investasi dicatat terpisah: tidak masuk total pengeluaran maupun anggaran.
+	const expenses = inPeriod.filter(countsToBudget);
+	const investments = inPeriod.filter((e) => !countsToBudget(e));
+	const prev = all.filter((e) => countsToBudget(e) && cycleKey(e.date, startDay) === prevKey);
 
 	const total = sum(expenses);
 	const budget = getBudget();
@@ -64,6 +67,8 @@ export async function getPeriodReport(key) {
 		startDay,
 		range: cycleRange(key, startDay),
 		expenses,
+		investments,
+		invested: sum(investments),
 		total,
 		prevTotal: sum(prev),
 		budget,

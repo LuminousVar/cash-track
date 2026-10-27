@@ -3,8 +3,9 @@
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import AddExpenseModal from '$lib/components/AddExpenseModal.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import MerchantIcon from '$lib/components/MerchantIcon.svelte';
 	import { page } from '$app/state';
-	import { formatRp, formatDay, categoryColor, CATEGORIES, cycleKey, cycleLabel, cycleRangeLabel } from '$lib/format.js';
+	import { formatRp, formatDay, CATEGORIES, INVESTMENT, normCategory, countsToBudget, cycleKey, cycleLabel, cycleRangeLabel } from '$lib/format.js';
 
 	let { data } = $props();
 
@@ -21,7 +22,8 @@
 	let expandedId = $state('');
 
 	let q = $state('');
-	let cat = $state(initCat && CATEGORIES.includes(initCat) ? initCat : 'Semua');
+	// Link lama bisa masih memakai nama kategori lama (mis. "Makanan").
+	let cat = $state(initCat ? normCategory(initCat) : 'Semua');
 	let src = $state('Semua');
 	// Nilai awal saja; setelah itu pilihan user tidak ditimpa saat data dimuat ulang.
 	let period = $state(
@@ -75,7 +77,9 @@
 				matches(e, q)
 		)
 	);
-	const total = $derived(filtered.reduce((s, e) => s + e.total, 0));
+	// Investasi tidak dijumlahkan ke pengeluaran, ditampilkan terpisah.
+	const total = $derived(filtered.reduce((s, e) => s + (countsToBudget(e) ? e.total : 0), 0));
+	const investTotal = $derived(filtered.reduce((s, e) => s + (countsToBudget(e) ? 0 : e.total), 0));
 	const visible = $derived(filtered.slice(0, limit));
 	const hasFilter = $derived(q !== '' || cat !== 'Semua' || src !== 'Semua');
 
@@ -138,7 +142,13 @@
 		<p class="text-ink-soft">
 			<span class="num font-medium text-ink">{filtered.length}</span> transaksi
 			<span class="text-ink-mute">·</span>
-			total <span class="num font-medium text-ink">{formatRp(total)}</span>
+			{#if cat !== INVESTMENT}
+				total <span class="num font-medium text-ink">{formatRp(total)}</span>
+			{/if}
+			{#if investTotal > 0}
+				{#if cat !== INVESTMENT}<span class="text-ink-mute">·</span>{/if}
+				investasi <span class="num font-medium text-ink">{formatRp(investTotal)}</span>
+			{/if}
 		</p>
 		{#if hasFilter}
 			<button onclick={resetFilters} class="text-sm text-ink-soft hover:text-ink">Hapus filter</button>
@@ -164,7 +174,7 @@
 					{@const open = !!t.id && expandedId === t.id}
 					<li>
 						<div class="flex items-center gap-3 px-4 py-3">
-							<span class="size-2 shrink-0 rounded-full" style="background: {categoryColor(t.category)}" aria-hidden="true"></span>
+							<MerchantIcon merchant={t.merchant} category={t.category} />
 							<div class="min-w-0 flex-1">
 								<p class="truncate text-sm font-medium">{t.merchant || 'Tanpa keterangan'}</p>
 								<p class="truncate text-xs text-ink-mute">
@@ -193,7 +203,7 @@
 							{/if}
 						</div>
 						{#if open}
-							<div class="px-4 pb-3 pl-9">
+							<div class="px-4 pb-3 pl-16">
 								<table class="w-full text-xs">
 									<tbody>
 										{#each items as it}

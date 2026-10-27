@@ -3,7 +3,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import Icon from './Icon.svelte';
-	import { CATEGORIES, PAYMENT_METHODS, formatRp, formatNumber, parseNumber, todayJakarta } from '$lib/format.js';
+	import { CATEGORIES, PAYMENT_METHODS, normCategory, formatRp, formatNumber, parseNumber, todayJakarta } from '$lib/format.js';
 
 	/**
 	 * @type {{
@@ -17,7 +17,7 @@
 	let { open = false, demo = false, mode = 'add', expense = null, onclose } = $props();
 
 	let date = $state(todayJakarta());
-	let category = $state('Makanan');
+	let category = $state(CATEGORIES[0]);
 	let method = $state('Tunai');
 	let merchant = $state('');
 	let notes = $state('');
@@ -59,7 +59,7 @@
 		confirmDelete = false;
 		if (!edit || !expense) {
 			date = todayJakarta();
-			category = 'Makanan';
+			category = CATEGORIES[0];
 			method = 'Tunai';
 			merchant = '';
 			notes = '';
@@ -67,7 +67,7 @@
 			paidOverride = null;
 		} else {
 			date = expense.date || todayJakarta();
-			category = CATEGORIES.includes(expense.category) ? expense.category : 'Lainnya';
+			category = normCategory(expense.category);
 			method = PAYMENT_METHODS.includes(expense.method) ? expense.method : '';
 			merchant = expense.merchant || '';
 			notes = expense.notes || '';

@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import IdleGuard from '$lib/components/IdleGuard.svelte';
 	import { NAV, isActive } from '$lib/nav.js';
 
 	let { children, data } = $props();
@@ -21,6 +22,7 @@
 {#if bare}
 	{@render children()}
 {:else}
+	{#if data.user && data.sessionIdleMs}<IdleGuard idleMs={data.sessionIdleMs} />{/if}
 	<div class="flex h-dvh overflow-hidden">
 		<div class="hidden md:flex">
 			<Sidebar user={data.user} />
@@ -38,19 +40,19 @@
 				</div>
 			</main>
 
-			<!-- Tab bar HP: lima menu selalu terlihat, tanpa drawer. -->
+			<!-- Tab bar HP: semua menu selalu terlihat, tanpa drawer. -->
 			<nav
 				aria-label="Navigasi utama"
 				class="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
 			>
-				<ul class="grid grid-cols-5">
+				<ul class="grid grid-cols-6">
 					{#each NAV as item}
 						{@const active = isActive(page.url.pathname, item.href)}
 						<li>
 							<a
 								href={item.href}
 								aria-current={active ? 'page' : undefined}
-								class="flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium
+								class="flex h-14 flex-col items-center justify-center gap-1 text-[10px] font-medium
 									{active ? 'text-accent' : 'text-ink-mute'}"
 							>
 								<Icon name={item.icon} size={20} />

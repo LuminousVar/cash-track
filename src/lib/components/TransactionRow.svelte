@@ -1,7 +1,8 @@
 <script>
 	// Satu baris transaksi untuk daftar ringkas (ringkasan) dan daftar per tanggal (transaksi).
 	import Icon from './Icon.svelte';
-	import { formatRp, formatDate, categoryColor } from '$lib/format.js';
+	import MerchantIcon from './MerchantIcon.svelte';
+	import { formatRp, formatDate } from '$lib/format.js';
 
 	/**
 	 * @type {{
@@ -20,7 +21,7 @@
 </script>
 
 <div class="flex items-center gap-3 px-4 py-3">
-	<span class="size-2 shrink-0 rounded-full" style="background: {categoryColor(t.category)}" aria-hidden="true"></span>
+	<MerchantIcon merchant={t.merchant} category={t.category} />
 	<div class="min-w-0 flex-1">
 		<p class="truncate text-sm font-medium">{t.merchant || 'Tanpa keterangan'}</p>
 		<p class="truncate text-xs text-ink-mute">{meta}</p>

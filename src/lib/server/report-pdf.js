@@ -112,6 +112,9 @@ function summaryText(r) {
 				(d === 0 ? 'relatif sama.' : `${d > 0 ? 'naik' : 'turun'} ${Math.abs(d)}%.`)
 		);
 	}
+	if (r.invested > 0) {
+		parts.push(`Selain itu ada investasi ${formatRp(r.invested)} (${r.investments.length} transaksi) yang dicatat terpisah dan tidak dihitung ke anggaran.`);
+	}
 	return parts.join(' ');
 }
 
@@ -168,6 +171,14 @@ export function reportHtml(r, { user = null, generatedAt = new Date() } = {}) {
 			(e) =>
 				`<tr><td>${formatDayMonth(e.date)}</td><td class="wrap">${esc(e.merchant.trim() || 'Tanpa nama')}</td><td>${esc(e.category || 'Lainnya')}</td>` +
 				`<td>${esc(e.method || '-')}</td><td>${e.source === 'manual' ? 'Manual' : 'Struk'}</td><td>${formatRp(e.total)}</td></tr>`
+		)
+		.join('');
+
+	const invRows = r.investments
+		.map(
+			(e) =>
+				`<tr><td>${formatDayMonth(e.date)}</td><td class="wrap">${esc(e.merchant.trim() || 'Tanpa nama')}</td>` +
+				`<td>${esc(e.method || '-')}</td><td>${formatRp(e.total)}</td></tr>`
 		)
 		.join('');
 
@@ -334,6 +345,9 @@ export function reportHtml(r, { user = null, generatedAt = new Date() } = {}) {
   table.tx td.wrap { text-align: left; white-space: normal; overflow-wrap: anywhere; }
   table.tx td:nth-child(n+3):nth-child(-n+5),
   table.tx th:nth-child(-n+5) { text-align: left; }
+  table.inv { break-inside: auto; }
+  table.inv td.wrap { text-align: left; white-space: normal; overflow-wrap: anywhere; }
+  table.inv td:nth-child(3), table.inv th:nth-child(-n+3) { text-align: left; }
 
   /* CALLOUT */
   .callout {
@@ -431,6 +445,20 @@ ${
   <tbody>
     ${txRows}
     <tr class="total"><td>Total</td><td></td><td></td><td></td><td></td><td>${formatRp(r.total)}</td></tr>
+  </tbody>
+</table>`
+		: ''
+}
+
+${
+	r.investments.length
+		? `<h2>Investasi</h2>
+<p>Tidak dihitung ke pengeluaran maupun anggaran.</p>
+<table class="financial compact inv">
+  <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Metode</th><th>Jumlah</th></tr></thead>
+  <tbody>
+    ${invRows}
+    <tr class="total"><td>Total</td><td></td><td></td><td>${formatRp(r.invested)}</td></tr>
   </tbody>
 </table>`
 		: ''

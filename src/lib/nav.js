@@ -3,6 +3,7 @@ export const NAV = [
 	{ label: 'Ringkasan', href: '/', icon: 'home' },
 	{ label: 'Transaksi', href: '/pengeluaran', icon: 'list' },
 	{ label: 'Laporan', href: '/laporan', icon: 'chart' },
+	{ label: 'Goals', href: '/goals', icon: 'target' },
 	{ label: 'Anggaran', href: '/anggaran', icon: 'wallet' },
 	{ label: 'Pengaturan', href: '/pengaturan', icon: 'settings' }
 ];

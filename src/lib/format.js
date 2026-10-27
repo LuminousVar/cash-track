@@ -7,9 +7,64 @@ export const MONTHS_LONG = [
 	'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
-export const CATEGORIES = ['Makanan', 'Belanja', 'Transport', 'Tagihan', 'Kesehatan', 'Hiburan', 'Lainnya'];
+export const CATEGORIES = ['Makanan & Minuman', 'Belanja', 'Transport', 'Tagihan', 'Kesehatan', 'Hiburan', 'Investasi', 'Lainnya'];
+
+/** Uang yang dipindahkan, bukan dihabiskan: tercatat, tapi tidak dihitung ke anggaran. */
+export const INVESTMENT = 'Investasi';
 
 export const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Transfer', 'Kartu Debit', 'Kartu Kredit', 'E-wallet'];
+
+/** Jenis goal, urutan = urutan pilihan di form. */
+export const GOAL_TYPES = ['Kebutuhan masa depan', 'Keinginan', 'Dana darurat', 'Lainnya'];
+
+/**
+ * Nominal dari teks bebas: "250000", "250.000", "100rb", "100k", "1,5jt", "2 juta".
+ * 0 kalau tidak terbaca.
+ * @param {string} s
+ */
+export function parseAmount(s) {
+	const m = /^([\d.,]+)\s*(rb|ribu|k|jt|juta)?$/i.exec(String(s ?? '').trim());
+	if (!m) return 0;
+	const unit = (m[2] ?? '').toLowerCase();
+	if (!unit) return Number(m[1].replace(/[.,]/g, '')) || 0;
+	const n = parseFloat(m[1].replace(/\.(?=\d{3}\b)/g, '').replace(',', '.'));
+	return Math.round((Number.isFinite(n) ? n : 0) * (unit === 'jt' || unit === 'juta' ? 1_000_000 : 1_000));
+}
+
+// Nama lama dan variasi yang mungkin ada di Sheet atau dikirim DeepSeek. Baris lama
+// berkategori "Makanan" tidak perlu diubah: dibaca sebagai "Makanan & Minuman".
+/** @type {Record<string, string>} */
+const CATEGORY_ALIASES = {
+	makanan: 'Makanan & Minuman',
+	minuman: 'Makanan & Minuman',
+	'makanan/minuman': 'Makanan & Minuman',
+	'makanan dan minuman': 'Makanan & Minuman',
+	investment: 'Investasi',
+	investasi: 'Investasi'
+};
+
+/**
+ * Kategori resmi untuk sebuah nilai. Di luar daftar dan alias jadi "Lainnya".
+ * @param {unknown} category
+ */
+export function normCategory(category) {
+	const s = String(category ?? '').trim();
+	if (CATEGORIES.includes(s)) return s;
+	return CATEGORY_ALIASES[s.toLowerCase()] ?? 'Lainnya';
+}
+
+/** Kunci token CSS per kategori (lihat --color-cat-* di layout.css). */
+/** @type {Record<string, string>} */
+const CATEGORY_KEYS = {
+	'Makanan & Minuman': 'makanan',
+	Belanja: 'belanja',
+	Transport: 'transport',
+	Tagihan: 'tagihan',
+	Kesehatan: 'kesehatan',
+	Hiburan: 'hiburan',
+	Investasi: 'investasi',
+	Lainnya: 'lainnya'
+};
 
 /**
  * Warna kategori sebagai CSS variable (didefinisikan per tema di layout.css).
@@ -17,9 +72,14 @@ export const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Transfer', 'Kartu Debit', 'Kar
  * @param {string} category
  */
 export function categoryColor(category) {
-	const key = CATEGORIES.includes(category) ? category.toLowerCase() : 'lainnya';
-	return `var(--color-cat-${key})`;
+	return `var(--color-cat-${CATEGORY_KEYS[normCategory(category)]})`;
 }
+
+/**
+ * True kalau transaksi ikut dihitung ke anggaran (semua kecuali Investasi).
+ * @param {{ category: string }} e
+ */
+export const countsToBudget = (e) => normCategory(e.category) !== INVESTMENT;
 
 /**
  * Status pemakaian anggaran: 'ok' di bawah ambang peringatan, 'warn' dari ambang

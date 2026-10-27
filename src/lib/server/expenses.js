@@ -4,7 +4,7 @@ import { env } from '$env/dynamic/private';
 import { readRows, appendRow, updateRow, deleteRow, isConfigured, SHEET_TAB } from './google.js';
 import { readConfig } from './config.js';
 import { currentCycle } from './cycle.js';
-import { MONTHS, CATEGORIES, cycleKey, prevCycleKey, cycleRange, daysBetween, addDays } from '$lib/format.js';
+import { MONTHS, CATEGORIES, INVESTMENT, normCategory, countsToBudget, cycleKey, prevCycleKey, cycleRange, daysBetween, addDays } from '$lib/format.js';
 
 export { isConfigured };
 
@@ -91,7 +91,8 @@ function rowToExpense(row, rowNumber = 0) {
 		rowNumber,
 		merchant: o.merchant,
 		date: o.date,
-		category: o.category,
+		// Nama lama ("Makanan") dan nilai di luar daftar dirapikan sekali di sini.
+		category: normCategory(o.category),
 		method: o.payment_method,
 		total: Number(o.total) || 0,
 		items: parseItems(o.items),
@@ -115,6 +116,7 @@ export async function listExpenses() {
 /**
  * Hitung ringkasan, arus bulanan, dan kategori teratas dari daftar pengeluaran.
  * "Bulan" di sini = periode gajian (lihat cycle.js), bukan bulan kalender.
+ * Investasi tidak dihitung ke pengeluaran maupun anggaran; totalnya dicatat terpisah.
  * @param {Expense[]} expenses
  */
 function computeDashboard(expenses) {
@@ -124,31 +126,43 @@ function computeDashboard(expenses) {
 	const prevKey = prevCycleKey(cycle.key);
 	const flow = MONTHS.map((m) => ({ month: m, amount: 0, telegram: 0 }));
 	const prevYearFlow = MONTHS.map(() => 0);
+	/** Pengeluaran per kategori untuk tiap periode tahun ini (bahan chart perbandingan bulanan). */
+	const categoryFlow = MONTHS.map(() => /** @type {Record<string, number>} */ ({}));
 	/** @type {Record<string, number>} */
 	const catThisMonth = {};
 	let totalAllTime = 0,
 		prevPeriod = 0,
 		count = 0,
 		fromTelegram = 0,
-		fromManual = 0;
+		fromManual = 0,
+		invested = 0,
+		investCount = 0,
+		investYear = 0;
 
 	for (const e of expenses) {
 		const amt = e.total;
-		totalAllTime += amt;
 		const key = cycleKey(e.date, cycle.startDay);
 		if (!key) continue;
 		const [ky, km] = key.split('-').map(Number);
+		if (!countsToBudget(e)) {
+			if (key === cycle.key) {
+				invested += amt;
+				investCount++;
+			}
+			if (ky === year) investYear += amt;
+			continue;
+		}
+		totalAllTime += amt;
 		if (ky === year) {
 			flow[km - 1].amount += amt;
 			if (e.source === 'telegram') flow[km - 1].telegram += amt;
+			categoryFlow[km - 1][e.category] = (categoryFlow[km - 1][e.category] || 0) + amt;
 		}
 		if (ky === year - 1) prevYearFlow[km - 1] += amt;
 		if (key === prevKey) prevPeriod += amt;
 		if (key === cycle.key) {
 			count++;
-			// Kategori di luar daftar (mis. diedit langsung di Sheet) masuk "Lainnya".
-			const cat = CATEGORIES.includes(e.category) ? e.category : 'Lainnya';
-			catThisMonth[cat] = (catThisMonth[cat] || 0) + amt;
+			catThisMonth[e.category] = (catThisMonth[e.category] || 0) + amt;
 			e.source === 'manual' ? fromManual++ : fromTelegram++;
 		}
 	}
@@ -163,6 +177,7 @@ function computeDashboard(expenses) {
 	return {
 		monthlyFlow: flow,
 		prevYearFlow,
+		categoryFlow,
 		categories,
 		summary: {
 			totalAllTime,
@@ -175,6 +190,9 @@ function computeDashboard(expenses) {
 			count,
 			fromTelegram,
 			fromManual,
+			invested,
+			investCount,
+			investYear,
 			cycle
 		}
 	};
@@ -191,7 +209,7 @@ export function getBudget() {
 }
 
 /**
- * Total pengeluaran per hari dalam satu periode. Indeks 0 = hari pertama periode.
+ * Total pengeluaran per hari dalam satu periode (tanpa Investasi). Indeks 0 = hari pertama periode.
  * @param {Expense[]} expenses
  * @param {string} key
  * @param {number} startDay
@@ -200,27 +218,28 @@ export function dailyTotals(expenses, key, startDay) {
 	const { start, days } = cycleRange(key, startDay);
 	const out = new Array(days).fill(0);
 	for (const e of expenses) {
-		if (cycleKey(e.date, startDay) !== key) continue;
+		if (!countsToBudget(e) || cycleKey(e.date, startDay) !== key) continue;
 		const i = daysBetween(start, e.date);
 		if (i >= 0 && i < days) out[i] += e.total;
 	}
 	return out;
 }
 
-/** Laporan: arus bulanan, ringkasan, total per kategori, dan data chart tren (tahun berjalan). */
+/** Laporan: arus bulanan, ringkasan, total per kategori, dan data chart (tahun berjalan). */
 export async function getReport() {
 	if (!isConfigured()) {
 		const summary = demoSummary();
 		return {
 			demo: true,
 			monthlyFlow: DEMO.monthlyFlow,
+			categoryFlow: demoCategoryFlow(),
 			summary,
 			categoryTotals: DEMO_CATEGORY_TOTALS,
 			trend: demoTrend(summary.cycle)
 		};
 	}
 	const expenses = await listExpenses();
-	const { summary, monthlyFlow, prevYearFlow } = computeDashboard(expenses);
+	const { summary, monthlyFlow, prevYearFlow, categoryFlow } = computeDashboard(expenses);
 	const { key, startDay } = summary.cycle;
 	const prevKey = prevCycleKey(key);
 	const trend = {
@@ -229,18 +248,11 @@ export async function getReport() {
 		prevDaily: dailyTotals(expenses, prevKey, startDay),
 		prevYearFlow
 	};
-	// Periode sama dengan monthlyFlow (tahun periode berjalan). Kategori di luar daftar
-	// (mis. hasil edit manual di Sheet) masuk "Lainnya" supaya totalnya tetap cocok.
-	const year = summary.cycle.key.slice(0, 4);
-	/** @type {Record<string, number>} */
-	const map = {};
-	for (const e of expenses) {
-		if (cycleKey(e.date, summary.cycle.startDay).slice(0, 4) !== year) continue;
-		const cat = CATEGORIES.includes(e.category) ? e.category : 'Lainnya';
-		map[cat] = (map[cat] || 0) + e.total;
-	}
-	const categoryTotals = CATEGORIES.map((c) => ({ name: c, amount: map[c] || 0 })).sort((a, b) => b.amount - a.amount);
-	return { demo: false, monthlyFlow, summary, categoryTotals, trend };
+	// Total per kategori setahun = jumlah categoryFlow, jadi selalu cocok dengan chart.
+	const categoryTotals = CATEGORIES.filter((c) => c !== INVESTMENT)
+		.map((c) => ({ name: c, amount: categoryFlow.reduce((s, m) => s + (m[c] || 0), 0) }))
+		.sort((a, b) => b.amount - a.amount);
+	return { demo: false, monthlyFlow, categoryFlow, summary, categoryTotals, trend };
 }
 
 /** Data untuk halaman dashboard. Pakai DEMO bila Sheet belum dikonfigurasi. */
@@ -419,17 +431,18 @@ export async function lastTelegramExpense(user) {
 const DEMO_TX = [
 	{ merchant: 'Indomaret', date: '2024-07-02', category: 'Belanja', method: 'QRIS', total: 87_500, source: 'telegram' },
 	{ merchant: 'Gojek', date: '2024-07-02', category: 'Transport', method: 'E-wallet', total: 32_000, source: 'telegram' },
-	{ merchant: 'Kopi Kenangan', date: '2024-07-01', category: 'Makanan', method: 'QRIS', total: 25_000, source: 'telegram' },
+	{ merchant: 'Kopi Kenangan', date: '2024-07-01', category: 'Makanan & Minuman', method: 'QRIS', total: 25_000, source: 'telegram' },
 	{ merchant: 'Token Listrik PLN', date: '2024-07-01', category: 'Tagihan', method: 'Transfer', total: 200_000, source: 'manual' },
 	{ merchant: 'Tokopedia', date: '2024-06-30', category: 'Belanja', method: 'Kartu Kredit', total: 349_000, source: 'telegram' },
-	{ merchant: 'Warteg Bahari', date: '2024-06-30', category: 'Makanan', method: 'Tunai', total: 18_000, source: 'manual' },
+	{ merchant: 'Warteg Bahari', date: '2024-06-30', category: 'Makanan & Minuman', method: 'Tunai', total: 18_000, source: 'manual' },
 	{ merchant: 'Netflix', date: '2024-06-29', category: 'Hiburan', method: 'Kartu Kredit', total: 186_000, source: 'telegram' },
-	{ merchant: 'Apotek K24', date: '2024-06-29', category: 'Kesehatan', method: 'Tunai', total: 64_000, source: 'manual' }
+	{ merchant: 'Apotek K24', date: '2024-06-29', category: 'Kesehatan', method: 'Tunai', total: 64_000, source: 'manual' },
+	{ merchant: 'Bibit', date: '2024-06-28', category: 'Investasi', method: 'Transfer', total: 500_000, source: 'manual' }
 ];
 
 // Total per kategori untuk demo. Jumlahnya = DEMO.summary.thisYear.
 const DEMO_CATEGORY_TOTALS = [
-	{ name: 'Makanan', amount: 24_500_000 },
+	{ name: 'Makanan & Minuman', amount: 24_500_000 },
 	{ name: 'Belanja', amount: 16_200_000 },
 	{ name: 'Transport', amount: 11_800_000 },
 	{ name: 'Tagihan', amount: 9_400_000 },
@@ -456,7 +469,7 @@ const DEMO = {
 	],
 	// Jumlahnya = summary.thisMonth.
 	categories: [
-		{ name: 'Makanan', amount: 2_850_000 },
+		{ name: 'Makanan & Minuman', amount: 2_850_000 },
 		{ name: 'Transport', amount: 1_640_000 },
 		{ name: 'Belanja', amount: 1_430_000 },
 		{ name: 'Tagihan', amount: 600_000 },
@@ -466,12 +479,26 @@ const DEMO = {
 	],
 	summary: {
 		totalAllTime: 70_875_000, thisYear: 70_875_000, thisMonth: 7_125_000, prevPeriod: 5_400_000, dailyAvg: 237_500,
-		budget: 9_500_000, budgetPct: 75, count: 142, fromTelegram: 118, fromManual: 24
+		budget: 9_500_000, budgetPct: 75, count: 142, fromTelegram: 118, fromManual: 24,
+		invested: 1_500_000, investCount: 2, investYear: 12_000_000
 	}
 };
 
 /** Ringkasan demo + info periode berjalan, supaya bentuknya sama dengan data asli. */
 const demoSummary = () => ({ ...DEMO.summary, cycle: currentCycle() });
+
+/** Pecah arus bulanan demo ke kategori sesuai porsi DEMO_CATEGORY_TOTALS, dengan variasi tetap. */
+function demoCategoryFlow() {
+	const all = DEMO_CATEGORY_TOTALS.reduce((s, c) => s + c.amount, 0);
+	return DEMO.monthlyFlow.map((m, i) => {
+		/** @type {Record<string, number>} */
+		const out = {};
+		const w = DEMO_CATEGORY_TOTALS.map((c, j) => (c.amount / all) * (0.7 + (Math.abs(Math.sin((i + 1) * (j + 3))) % 0.6)));
+		const sum = w.reduce((s, x) => s + x, 0);
+		DEMO_CATEGORY_TOTALS.forEach((c, j) => (out[c.name] = Math.round((w[j] / sum) * m.amount)));
+		return out;
+	});
+}
 
 /**
  * Bagi `total` ke `days` hari dengan pola naik-turun yang tetap (deterministik),

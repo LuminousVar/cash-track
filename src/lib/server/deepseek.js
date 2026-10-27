@@ -1,6 +1,6 @@
 // Strukturkan teks struk (hasil OCR) jadi JSON via DeepSeek (chat JSON mode).
 import { env } from '$env/dynamic/private';
-import { CATEGORIES, PAYMENT_METHODS, todayJakarta } from '$lib/format.js';
+import { CATEGORIES, PAYMENT_METHODS, normCategory, todayJakarta } from '$lib/format.js';
 
 /**
  * @typedef {{ name: string, qty: number, price: number }} Item
@@ -14,6 +14,8 @@ Balas HANYA JSON dengan field:
 - total: total akhir yang dibayar (number, tanpa pemisah ribuan)
 - currency: kode mata uang, default "IDR"
 - category: WAJIB salah satu dari: ${CATEGORIES.join(', ')}
+  (Makanan & Minuman = makan, minum, kopi, jajanan, restoran, pesan antar makanan;
+   Investasi = pembelian reksa dana, saham, emas, kripto, deposito, setoran tabungan berjangka)
 - payment_method: salah satu dari: ${PAYMENT_METHODS.join(', ')} (atau "" jika tak jelas)
 - items: array {name, qty, price} untuk tiap barang (price = harga satuan; number)
 Jika ragu kategori, pakai "Lainnya". Jangan menambah teks lain di luar JSON.`;
@@ -22,7 +24,7 @@ Jika ragu kategori, pakai "Lainnya". Jangan menambah teks lain di luar JSON.`;
 export const DEEPSEEK_MODEL = 'deepseek-flash';
 
 /** @param {string} c */
-const pickCategory = (c) => (CATEGORIES.includes(c) ? c : 'Lainnya');
+const pickCategory = normCategory;
 /** @param {string} m */
 const pickMethod = (m) => (PAYMENT_METHODS.includes(m) ? m : '');
 

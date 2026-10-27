@@ -4,7 +4,7 @@ import { readConfig, writeConfig } from './config.js';
 import { sendMessage } from './telegram.js';
 import { listExpenses, isConfigured, getBudget } from './expenses.js';
 import { currentCycle } from './cycle.js';
-import { formatRp, cycleKey } from '$lib/format.js';
+import { formatRp, cycleKey, countsToBudget } from '$lib/format.js';
 
 /** Chat ID tujuan notif, dari config, fallback ke ID pertama whitelist. */
 function getNotifyChatId() {
@@ -39,7 +39,7 @@ export async function checkBudgetAlert() {
 	try {
 		const expenses = await listExpenses();
 		const thisMonth = expenses
-			.filter((e) => cycleKey(e.date, cycle.startDay) === monthKey)
+			.filter((e) => countsToBudget(e) && cycleKey(e.date, cycle.startDay) === monthKey)
 			.reduce((s, e) => s + e.total, 0);
 
 		const budget = getBudget();

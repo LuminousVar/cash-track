@@ -28,7 +28,7 @@
 <div class="mt-6 space-y-6">
 	<BudgetStatus spent={s.thisMonth} budget={s.budget} warnPct={data.warnPct} cycle={s.cycle} />
 
-	<section class="grid grid-cols-1 gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line sm:grid-cols-3" aria-label="Statistik periode">
+	<section class="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line lg:grid-cols-4" aria-label="Statistik periode">
 		<div class="bg-surface p-4">
 			<p class="eyebrow">Pengeluaran periode ini</p>
 			<p class="num mt-1 text-xl font-semibold">{formatRp(s.thisMonth)}</p>
@@ -53,6 +53,11 @@
 			<p class="num mt-1 text-xl font-semibold">{s.count}</p>
 			<p class="mt-1 text-xs text-ink-mute">{s.fromTelegram} dari struk, {s.fromManual} manual</p>
 		</div>
+		<a href="/pengeluaran?category=Investasi&period={s.cycle.key}" class="group bg-surface p-4 hover:bg-subtle/60">
+			<p class="eyebrow">Investasi periode ini</p>
+			<p class="num mt-1 text-xl font-semibold">{formatRp(s.invested)}</p>
+			<p class="mt-1 text-xs text-ink-mute">{s.investCount} transaksi, tidak dihitung ke anggaran</p>
+		</a>
 	</section>
 
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-5">

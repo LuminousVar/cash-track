@@ -5,10 +5,10 @@ import { htmlToPdf } from '$lib/server/pdf.js';
 import { getCycleStartDay } from '$lib/server/cycle.js';
 import { reportReady, todayJakarta, cycleRange, cycleLabel, formatLongDate } from '$lib/format.js';
 
-// Config berbeda membuat route ini jadi fungsi Vercel sendiri, terpisah dari halaman
-// lain. Cold start Chromium bisa beberapa detik.
+// Fungsi Vercel sendiri (split) karena membawa Chromium ~70MB. Tanpa split, route lain
+// dengan config sama (webhook Telegram, maxDuration 60) ikut digabung ke fungsi berat ini.
 /** @type {import('@sveltejs/adapter-vercel').Config} */
-export const config = { maxDuration: 60 };
+export const config = { maxDuration: 60, split: true };
 
 export async function GET({ params, locals }) {
 	const key = params.period;

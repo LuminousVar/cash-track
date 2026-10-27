@@ -1,6 +1,7 @@
 <script>
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import SpendChart from '$lib/components/SpendChart.svelte';
+	import MonthlyChart from '$lib/components/MonthlyChart.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import {
 		formatRp, categoryColor, cycleRangeLabel, budgetStatus, STATUS_STYLE,
@@ -83,6 +84,9 @@
 		<div class="bg-surface p-4">
 			<p class="eyebrow">Total {year}</p>
 			<p class="num mt-1 text-xl font-semibold">{formatRp(total)}</p>
+			{#if r.summary.investYear > 0}
+				<p class="num mt-1 text-xs text-ink-mute">Di luar investasi {formatRp(r.summary.investYear)}</p>
+			{/if}
 		</div>
 		<div class="bg-surface p-4">
 			<p class="eyebrow">Rata-rata per periode</p>
@@ -101,7 +105,15 @@
 		</div>
 	</section>
 
-	<SpendChart trend={r.trend} monthlyFlow={r.monthlyFlow} budget={data.budget} cycle={r.summary.cycle} />
+	<MonthlyChart
+		categoryFlow={r.categoryFlow}
+		prevYearFlow={r.trend.prevYearFlow}
+		budget={data.budget}
+		warnPct={data.warnPct}
+		cycle={r.summary.cycle}
+	/>
+
+	<SpendChart trend={r.trend} budget={data.budget} cycle={r.summary.cycle} />
 
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 		<section class="card" aria-labelledby="period-heading">

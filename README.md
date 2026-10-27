@@ -17,11 +17,14 @@ Personal expense tracker powered by a Telegram bot. Send a receipt photo to the 
 - **Budget management**: set a monthly limit, track progress with a visual gauge, view 12-month history
 - **Budget alerts via Telegram**: get a notification when spending hits a configurable warning threshold (default 80%) and again when the budget is exceeded
 - **Budget status**: remaining budget, per-day allowance until the next payday, end-of-period projection, and change vs the previous period
-- **Spending trend chart**: cumulative spending this period vs the previous period, day by day, against the budget line, with hover and keyboard readouts. A yearly view compares each period with the same period last year
+- **Spending trend chart**: cumulative spending this period vs the previous period, day by day, against the budget line, with hover and keyboard readouts
+- **Monthly comparison chart**: one stacked bar per period of the year, split by category, with the budget line and a marker for the same period last year. Hover (or tap on mobile) for a breakdown and the change vs the previous period, hover a legend item to highlight one category, click a bar to open its transactions
+- **Merchant logos**: transactions show the logo of the merchant (Indomaret, Alfamidi, Gojek, BCA, Netflix, Anthropic, and about 170 other Indonesian and international brands); unknown merchants get a category icon
+- **Goals**: savings targets (future needs, wants, emergency fund) with deadline, progress, the amount to set aside per month, and an estimated completion date based on recent deposits. Deposits are kept separate from expenses and never touch the budget
 - **PDF report per period**: download a print-ready A4 report (summary, trend chart, category and payment breakdown, full transaction list) from the **Laporan** page, starting on the last day of the period (the 24th with `CYCLE_START_DAY=25`)
 - **Settings page**: shows which integrations are configured (API keys stay in env vars), theme, and bot help
 - **Light, dark, or system theme**: remembered per browser
-- **Auth**: login-protected dashboard with argon2id password hashing and signed session cookies
+- **Auth**: login-protected dashboard with argon2id password hashing, signed session cookies that end when the browser closes, a 30-minute idle timeout, a 12-hour maximum session, and a lockout after 5 failed logins
 - **Demo mode**: works without any env vars for local preview (sample data shown)
 
 ## Why no database?
@@ -68,6 +71,8 @@ timestamp  date  merchant  total  currency  category  payment_method  items  pho
 > Upgrading an existing 13-column sheet? Add the `id` header and run
 > `bun scripts/backfill-ids.js` once. It fills the column for every existing row.
 > Rows without an `id` cannot be edited or deleted from the dashboard.
+>
+> Goals live in two more tabs, `Goals` and `GoalLog`, which the app creates on first use.
 
 3. Copy the spreadsheet **ID** from the URL:
    `https://docs.google.com/spreadsheets/d/`**`<SHEET_ID>`**`/edit`
@@ -189,6 +194,29 @@ PDFs are rendered on demand by `/laporan/pdf/<YYYY-MM>`, which runs as its own V
 
 ---
 
+## Sessions
+
+A session ends when any of these happens: the browser is closed, 30 minutes pass without activity, or 12 hours pass since login. The idle limit is checked on the server, so a browser that restores its tabs after a restart still has to log in again. While you are reading a page without clicking around, the page pings the server every few minutes to keep the session alive, and logs itself out after 30 minutes without input.
+
+`SESSION_SECRET` is required in production; without it, login is refused instead of falling back to a guessable key. Rotating it logs everyone out.
+
+---
+
+## Merchant logos
+
+Brands and their aliases live in `src/lib/brands.js`. Matching is per whole word with the longest alias winning, so "ShopeeFood" maps to Shopee and "Toko Mandiri Jaya" does not map to Bank Mandiri. Aliases that are also common words (`dana`, `steam`, `xl`) only match when the merchant name is exactly that word.
+
+Logos are downloaded once and committed to `static/brands/`; the app never calls a third-party service at runtime. To add a brand, add an entry to `brands.js` and run:
+
+```bash
+bun scripts/fetch-brand-logos.js          # only brands without a logo
+bun scripts/fetch-brand-logos.js --force  # re-download everything
+```
+
+Sources, in order: Simple Icons (`si`), Wikimedia Commons (`wiki`), the App Store icon (`app`), the brand's own site, then Google's favicon service. Raster logos are normalised to 128px WebP through Chromium. Brands without a usable logo show their initials.
+
+---
+
 ## Multi-user (optional)
 
 By default, one user is configured via `AUTH_USERNAME` / `AUTH_PASSWORD_HASH`. To add more users, set `AUTH_USERS` (overrides the single-user vars):
@@ -214,6 +242,9 @@ bun scripts/hash-password.js 'password-for-alice'
 | `/start` | Welcome message |
 | `/hapus` | Delete your most recent Telegram-sourced entry |
 | `/hapus <id>` | Delete a specific entry by the ID shown in the confirmation reply |
+| `/goals` | List goals with progress and the amount needed per month |
+| `/nabung <amount> <goal>` | Record a deposit, e.g. `/nabung 500rb laptop` (amounts like `250000`, `250.000`, `100rb`, `1,5jt` all work; the goal name can be partial, and can be left out if there is only one goal) |
+| `/tarik <amount> <goal>` | Record a withdrawal from a goal |
 
 ---
 
@@ -221,9 +252,11 @@ bun scripts/hash-password.js 'password-for-alice'
 
 Fixed set used by both the bot parser and the manual form:
 
-`Makanan` · `Belanja` · `Transport` · `Tagihan` · `Kesehatan` · `Hiburan` · `Lainnya`
+`Makanan & Minuman` · `Belanja` · `Transport` · `Tagihan` · `Kesehatan` · `Hiburan` · `Investasi` · `Lainnya`
 
-DeepSeek is instructed to always pick one of these; unrecognised expenses fall back to `Lainnya`.
+DeepSeek is instructed to always pick one of these; unrecognised expenses fall back to `Lainnya`. Rows that still say `Makanan` (the old name) are read as `Makanan & Minuman`, so existing sheets need no changes.
+
+`Investasi` (mutual funds, stocks, gold, crypto) is recorded but not counted as spending: it does not reduce the remaining budget, does not trigger budget alerts, and is shown separately on the dashboard, the report page, and in the PDF.
 
 ---
 
