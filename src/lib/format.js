@@ -2,6 +2,11 @@
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
+export const MONTHS_LONG = [
+	'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+	'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
 export const CATEGORIES = ['Makanan', 'Belanja', 'Transport', 'Tagihan', 'Kesehatan', 'Hiburan', 'Lainnya'];
 
 export const PAYMENT_METHODS = ['Tunai', 'QRIS', 'Transfer', 'Kartu Debit', 'Kartu Kredit', 'E-wallet'];
@@ -191,6 +196,37 @@ export function prevCycleKey(key) {
 }
 
 /**
+ * Laporan PDF sebuah periode bisa diunduh mulai hari terakhir periodenya. Dengan
+ * gajian tanggal 25, laporan periode Okt (25 Sep - 24 Okt) terbuka tanggal 24 Okt.
+ * @param {string} key
+ * @param {number} startDay
+ * @param {string} today  "YYYY-MM-DD" (WIB)
+ */
+export function reportReady(key, startDay, today) {
+	return today >= cycleRange(key, startDay).end;
+}
+
+/**
+ * Geser tanggal "YYYY-MM-DD" sebanyak `n` hari.
+ * @param {string} iso
+ * @param {number} n
+ */
+export function addDays(iso, n) {
+	const [y, m, d] = ymd(iso) ?? [1970, 1, 1];
+	const t = new Date(Date.UTC(y, m - 1, d + n));
+	return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
+}
+
+/**
+ * Tanggal dan bulan singkat, misalnya "2026-10-05" jadi "5 Okt".
+ * @param {string} iso
+ */
+export function formatDayMonth(iso) {
+	const p = ymd(iso);
+	return p ? `${p[2]} ${MONTHS[p[1] - 1]}` : (iso ?? '');
+}
+
+/**
  * Tanggal dengan nama hari, misalnya "Kamis, 24 Sep 2026". Dibaca dari komponen
  * string supaya tidak bergeser karena zona waktu.
  * @param {string} iso
@@ -201,6 +237,15 @@ export function formatDay(iso) {
 	const d = new Date(p[0], p[1] - 1, p[2]);
 	const day = new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(d);
 	return `${day}, ${p[2]} ${MONTHS[p[1] - 1]} ${p[0]}`;
+}
+
+/**
+ * Tanggal panjang tanpa nama hari, misalnya "24 Oktober 2026".
+ * @param {string} iso
+ */
+export function formatLongDate(iso) {
+	const p = ymd(iso);
+	return p ? `${p[2]} ${MONTHS_LONG[p[1] - 1]} ${p[0]}` : (iso ?? '');
 }
 
 /**

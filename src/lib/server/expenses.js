@@ -4,7 +4,7 @@ import { env } from '$env/dynamic/private';
 import { readRows, appendRow, updateRow, deleteRow, isConfigured, SHEET_TAB } from './google.js';
 import { readConfig } from './config.js';
 import { currentCycle } from './cycle.js';
-import { MONTHS, CATEGORIES, cycleKey, prevCycleKey } from '$lib/format.js';
+import { MONTHS, CATEGORIES, cycleKey, prevCycleKey, cycleRange, daysBetween, addDays } from '$lib/format.js';
 
 export { isConfigured };
 
@@ -123,6 +123,7 @@ function computeDashboard(expenses) {
 	const month = monthNum - 1;
 	const prevKey = prevCycleKey(cycle.key);
 	const flow = MONTHS.map((m) => ({ month: m, amount: 0, telegram: 0 }));
+	const prevYearFlow = MONTHS.map(() => 0);
 	/** @type {Record<string, number>} */
 	const catThisMonth = {};
 	let totalAllTime = 0,
@@ -141,6 +142,7 @@ function computeDashboard(expenses) {
 			flow[km - 1].amount += amt;
 			if (e.source === 'telegram') flow[km - 1].telegram += amt;
 		}
+		if (ky === year - 1) prevYearFlow[km - 1] += amt;
 		if (key === prevKey) prevPeriod += amt;
 		if (key === cycle.key) {
 			count++;
@@ -160,6 +162,7 @@ function computeDashboard(expenses) {
 
 	return {
 		monthlyFlow: flow,
+		prevYearFlow,
 		categories,
 		summary: {
 			totalAllTime,
@@ -187,13 +190,45 @@ export function getBudget() {
 	return monthlyBudget();
 }
 
-/** Laporan: arus bulanan, ringkasan, dan total per kategori (tahun berjalan). */
+/**
+ * Total pengeluaran per hari dalam satu periode. Indeks 0 = hari pertama periode.
+ * @param {Expense[]} expenses
+ * @param {string} key
+ * @param {number} startDay
+ */
+export function dailyTotals(expenses, key, startDay) {
+	const { start, days } = cycleRange(key, startDay);
+	const out = new Array(days).fill(0);
+	for (const e of expenses) {
+		if (cycleKey(e.date, startDay) !== key) continue;
+		const i = daysBetween(start, e.date);
+		if (i >= 0 && i < days) out[i] += e.total;
+	}
+	return out;
+}
+
+/** Laporan: arus bulanan, ringkasan, total per kategori, dan data chart tren (tahun berjalan). */
 export async function getReport() {
 	if (!isConfigured()) {
-		return { demo: true, monthlyFlow: DEMO.monthlyFlow, summary: demoSummary(), categoryTotals: DEMO_CATEGORY_TOTALS };
+		const summary = demoSummary();
+		return {
+			demo: true,
+			monthlyFlow: DEMO.monthlyFlow,
+			summary,
+			categoryTotals: DEMO_CATEGORY_TOTALS,
+			trend: demoTrend(summary.cycle)
+		};
 	}
 	const expenses = await listExpenses();
-	const { summary, monthlyFlow } = computeDashboard(expenses);
+	const { summary, monthlyFlow, prevYearFlow } = computeDashboard(expenses);
+	const { key, startDay } = summary.cycle;
+	const prevKey = prevCycleKey(key);
+	const trend = {
+		prevKey,
+		daily: dailyTotals(expenses, key, startDay),
+		prevDaily: dailyTotals(expenses, prevKey, startDay),
+		prevYearFlow
+	};
 	// Periode sama dengan monthlyFlow (tahun periode berjalan). Kategori di luar daftar
 	// (mis. hasil edit manual di Sheet) masuk "Lainnya" supaya totalnya tetap cocok.
 	const year = summary.cycle.key.slice(0, 4);
@@ -205,7 +240,7 @@ export async function getReport() {
 		map[cat] = (map[cat] || 0) + e.total;
 	}
 	const categoryTotals = CATEGORIES.map((c) => ({ name: c, amount: map[c] || 0 })).sort((a, b) => b.amount - a.amount);
-	return { demo: false, monthlyFlow, summary, categoryTotals };
+	return { demo: false, monthlyFlow, summary, categoryTotals, trend };
 }
 
 /** Data untuk halaman dashboard. Pakai DEMO bila Sheet belum dikonfigurasi. */
@@ -437,3 +472,38 @@ const DEMO = {
 
 /** Ringkasan demo + info periode berjalan, supaya bentuknya sama dengan data asli. */
 const demoSummary = () => ({ ...DEMO.summary, cycle: currentCycle() });
+
+/**
+ * Bagi `total` ke `days` hari dengan pola naik-turun yang tetap (deterministik),
+ * supaya chart demo tidak berubah tiap kali dimuat.
+ * @param {number} days
+ * @param {number} total
+ * @param {number} seed
+ */
+function demoSpread(days, total, seed) {
+	const w = Array.from({ length: days }, (_, i) => 0.2 + Math.abs(Math.sin((i + 1) * 12.9898 + seed) * 43758.5453) % 1);
+	const sum = w.reduce((s, x) => s + x, 0);
+	return w.map((x) => Math.round((x / sum) * total));
+}
+
+/** @param {ReturnType<typeof currentCycle>} cycle */
+function demoTrend(cycle) {
+	const prevKey = prevCycleKey(cycle.key);
+	const daily = demoSpread(cycle.dayIndex, DEMO.summary.thisMonth, 1);
+	return {
+		prevKey,
+		daily: [...daily, ...new Array(cycle.days - cycle.dayIndex).fill(0)],
+		prevDaily: demoSpread(cycleRange(prevKey, cycle.startDay).days, DEMO.summary.prevPeriod, 2),
+		prevYearFlow: DEMO.monthlyFlow.map((m) => Math.round(m.amount * 0.85))
+	};
+}
+
+/**
+ * Transaksi DEMO dipindah ke dalam periode `key`, untuk pratinjau PDF tanpa Sheet.
+ * @param {string} key
+ * @param {number} startDay
+ */
+export function demoExpensesIn(key, startDay) {
+	const { start, days } = cycleRange(key, startDay);
+	return DEMO_TX.map((e, i) => ({ ...e, date: addDays(start, Math.floor((i * days) / DEMO_TX.length)) }));
+}

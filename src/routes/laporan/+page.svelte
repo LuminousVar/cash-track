@@ -1,8 +1,46 @@
 <script>
 	import PageHeader from '$lib/components/PageHeader.svelte';
-	import { formatRp, formatRpShort, categoryColor, cycleRangeLabel, budgetStatus, STATUS_STYLE } from '$lib/format.js';
+	import SpendChart from '$lib/components/SpendChart.svelte';
+	import Icon from '$lib/components/Icon.svelte';
+	import {
+		formatRp, categoryColor, cycleRangeLabel, budgetStatus, STATUS_STYLE,
+		reportReady, cycleRange, cycleLabel, prevCycleKey, formatDayMonth
+	} from '$lib/format.js';
 
 	let { data } = $props();
+
+	/** Periode yang PDF-nya sedang disiapkan. */
+	let busy = $state(/** @type {string | null} */ (null));
+	let pdfError = $state('');
+
+	/** @param {string} key */
+	const ready = (key) => reportReady(key, data.cycleStartDay, data.today);
+
+	// Tombol di header: periode berjalan kalau sudah hari terakhirnya, selain itu periode lalu.
+	const latestReady = $derived(ready(data.report.summary.cycle.key) ? data.report.summary.cycle.key : prevCycleKey(data.report.summary.cycle.key));
+
+	/**
+	 * Unduh lewat fetch (bukan link biasa) supaya ada status "Menyiapkan" selama
+	 * Chromium di server merender, dan error bisa ditampilkan.
+	 * @param {string} key
+	 */
+	async function downloadPdf(key) {
+		busy = key;
+		pdfError = '';
+		try {
+			const res = await fetch(`/laporan/pdf/${key}`);
+			if (!res.ok) throw new Error((await res.json().catch(() => null))?.message ?? 'Gagal membuat PDF.');
+			// Sesi habis: server mengalihkan ke halaman login, bukan mengirim PDF.
+			if (!res.headers.get('content-type')?.includes('application/pdf')) throw new Error('Sesi berakhir. Muat ulang halaman lalu coba lagi.');
+			const url = URL.createObjectURL(await res.blob());
+			Object.assign(document.createElement('a'), { href: url, download: `cashtrack-laporan-${key}.pdf` }).click();
+			setTimeout(() => URL.revokeObjectURL(url), 10_000);
+		} catch (e) {
+			pdfError = e instanceof Error ? e.message : String(e);
+		} finally {
+			busy = null;
+		}
+	}
 
 	const r = $derived(data.report);
 	const year = $derived(r.summary.cycle.key.slice(0, 4));
@@ -21,13 +59,24 @@
 
 	const cats = $derived(r.categoryTotals.filter((c) => c.amount > 0));
 	const catTotal = $derived(cats.reduce((s, c) => s + c.amount, 0));
-
-	// Skala chart mencakup garis anggaran supaya bulan di bawah anggaran terlihat proporsional.
-	const scale = $derived(Math.max(1, data.budget, ...r.monthlyFlow.map((m) => m.amount)) * 1.08);
-	const budgetTop = $derived(100 - (data.budget / scale) * 100);
 </script>
 
-<PageHeader title="Laporan" description="Tahun {year}, dihitung per periode gajian." />
+<PageHeader title="Laporan" description="Tahun {year}, dihitung per periode gajian.">
+	<button onclick={() => downloadPdf(latestReady)} disabled={busy !== null} class="btn btn-secondary w-full sm:w-auto">
+		<Icon name="download" />
+		{busy === latestReady ? 'Menyiapkan PDF...' : `Unduh PDF ${cycleLabel(latestReady)}`}
+	</button>
+</PageHeader>
+
+{#if !ready(r.summary.cycle.key)}
+	<p class="mt-2 text-xs text-ink-mute sm:text-right">
+		Laporan PDF periode {cycleLabel(r.summary.cycle.key)} bisa diunduh mulai {formatDayMonth(r.summary.cycle.end)}.
+	</p>
+{/if}
+
+{#if pdfError}
+	<p class="mt-4 rounded-lg border border-danger/30 bg-danger-bg px-3 py-2 text-sm text-danger" role="alert">{pdfError}</p>
+{/if}
 
 <div class="mt-6 space-y-6">
 	<section class="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line lg:grid-cols-4" aria-label="Ringkasan tahunan">
@@ -52,42 +101,7 @@
 		</div>
 	</section>
 
-	<section class="card p-4 sm:p-5" aria-labelledby="chart-heading">
-		<div class="flex flex-wrap items-baseline justify-between gap-2">
-			<h2 id="chart-heading" class="text-sm font-semibold">Pengeluaran per periode</h2>
-			<p class="flex items-center gap-2 text-xs text-ink-mute">
-				<span class="inline-block w-4 border-t border-dashed border-ink-mute"></span>
-				Anggaran {formatRp(data.budget)}
-			</p>
-		</div>
-
-		<div class="relative mt-6 h-48">
-			<div class="pointer-events-none absolute inset-x-0 border-t border-dashed border-ink-mute/70" style="top: {budgetTop}%"></div>
-			<div class="flex h-full items-end gap-1.5 border-b border-line sm:gap-3">
-				{#each r.monthlyFlow as m, i}
-					{@const h = (m.amount / scale) * 100}
-					{@const status = budgetStatus(Math.round((m.amount / Math.max(1, data.budget)) * 100), data.warnPct)}
-					<div class="flex h-full flex-1 flex-col items-center justify-end" title="{m.month}: {formatRp(m.amount)}">
-						{#if m.amount > 0}
-							<span class="num mb-1 hidden text-[10px] text-ink-mute sm:block">{formatRpShort(m.amount)}</span>
-							<div
-								class="w-full max-w-10 rounded-t {status === 'over' ? 'bg-danger' : i === currentIdx ? 'bg-accent' : 'bg-ink-mute/45'}"
-								style="height: {h}%"
-							></div>
-						{/if}
-					</div>
-				{/each}
-			</div>
-		</div>
-		<div class="mt-2 flex gap-1.5 sm:gap-3">
-			{#each r.monthlyFlow as m, i}
-				<span class="flex-1 text-center text-[11px] {i === currentIdx ? 'font-semibold text-ink' : 'text-ink-mute'}">{m.month}</span>
-			{/each}
-		</div>
-		<p class="sr-only">
-			{#each r.monthlyFlow as m}{m.month}: {formatRp(m.amount)}. {/each}
-		</p>
-	</section>
+	<SpendChart trend={r.trend} monthlyFlow={r.monthlyFlow} budget={data.budget} cycle={r.summary.cycle} />
 
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 		<section class="card" aria-labelledby="period-heading">
@@ -96,10 +110,11 @@
 				<table class="w-full text-sm">
 					<thead>
 						<tr class="text-left text-xs text-ink-mute">
-							<th class="px-4 py-2 font-medium">Periode</th>
-							<th class="px-4 py-2 text-right font-medium">Pengeluaran</th>
-							<th class="px-4 py-2 text-right font-medium">Dari anggaran</th>
-							<th class="px-4 py-2 font-medium">Status</th>
+							<th class="px-3 py-2 font-medium sm:px-4">Periode</th>
+							<th class="px-3 py-2 text-right font-medium sm:px-4">Pengeluaran</th>
+							<th class="hidden px-4 py-2 text-right font-medium sm:table-cell">Dari anggaran</th>
+							<th class="px-3 py-2 font-medium sm:px-4">Status</th>
+							<th class="px-3 py-2 text-right font-medium sm:px-4"><span class="sr-only sm:not-sr-only">Laporan</span></th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-line">
@@ -108,17 +123,34 @@
 							{@const st = STATUS_STYLE[budgetStatus(pct, data.warnPct)]}
 							{@const range = cycleRangeLabel(m.key, data.cycleStartDay)}
 							<tr>
-								<td class="px-4 py-2.5">
+								<td class="px-3 py-2.5 sm:px-4">
 									<a href="/pengeluaran?period={m.key}" class="hover:underline">{m.month}</a>
 									{#if range}<span class="block text-xs text-ink-mute">{range}</span>{/if}
 								</td>
-								<td class="num px-4 py-2.5 text-right">{m.amount > 0 ? formatRp(m.amount) : '-'}</td>
-								<td class="num px-4 py-2.5 text-right text-ink-soft">{m.amount > 0 ? `${pct}%` : '-'}</td>
-								<td class="px-4 py-2.5">
+								<td class="num px-3 py-2.5 text-right whitespace-nowrap sm:px-4">{m.amount > 0 ? formatRp(m.amount) : '-'}</td>
+								<td class="num hidden px-4 py-2.5 text-right text-ink-soft sm:table-cell">{m.amount > 0 ? `${pct}%` : '-'}</td>
+								<td class="px-3 py-2.5 sm:px-4">
 									{#if m.amount > 0}
 										<span class="rounded-full px-2 py-0.5 text-xs font-medium {st.bg} {st.fg}">{st.label}</span>
 									{:else}
 										<span class="text-xs text-ink-mute">Tidak ada data</span>
+									{/if}
+								</td>
+								<td class="px-3 py-1.5 text-right sm:px-4">
+									{#if m.amount <= 0}
+										<span class="text-xs text-ink-mute">-</span>
+									{:else if ready(m.key)}
+										<button
+											onclick={() => downloadPdf(m.key)}
+											disabled={busy !== null}
+											class="btn btn-ghost h-8 px-2 text-xs"
+											aria-label="Unduh laporan PDF {cycleLabel(m.key)}"
+										>
+											<Icon name="download" size={14} class={busy === m.key ? 'animate-pulse' : ''} />
+											<span class="hidden sm:inline">{busy === m.key ? 'Menyiapkan...' : 'PDF'}</span>
+										</button>
+									{:else}
+										<span class="text-xs whitespace-nowrap text-ink-mute"><span class="hidden sm:inline">Mulai </span>{formatDayMonth(cycleRange(m.key, data.cycleStartDay).end)}</span>
 									{/if}
 								</td>
 							</tr>

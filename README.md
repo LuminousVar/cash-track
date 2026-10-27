@@ -17,6 +17,8 @@ Personal expense tracker powered by a Telegram bot. Send a receipt photo to the 
 - **Budget management**: set a monthly limit, track progress with a visual gauge, view 12-month history
 - **Budget alerts via Telegram**: get a notification when spending hits a configurable warning threshold (default 80%) and again when the budget is exceeded
 - **Budget status**: remaining budget, per-day allowance until the next payday, end-of-period projection, and change vs the previous period
+- **Spending trend chart**: cumulative spending this period vs the previous period, day by day, against the budget line, with hover and keyboard readouts. A yearly view compares each period with the same period last year
+- **PDF report per period**: download a print-ready A4 report (summary, trend chart, category and payment breakdown, full transaction list) from the **Laporan** page, starting on the last day of the period (the 24th with `CYCLE_START_DAY=25`)
 - **Settings page**: shows which integrations are configured (API keys stay in env vars), theme, and bot help
 - **Light, dark, or system theme**: remembered per browser
 - **Auth**: login-protected dashboard with argon2id password hashing and signed session cookies
@@ -40,6 +42,7 @@ For a personal finance tracker that one person uses daily, this is exactly the r
 - [Tailwind CSS v4](https://tailwindcss.com) via `@tailwindcss/vite`
 - [Bun](https://bun.sh) as package manager & runtime
 - Google Cloud Vision · Google Sheets API · DeepSeek API · Telegram Bot API · `@node-rs/argon2`
+- PDF reports: headless Chromium via `@sparticuz/chromium` + `puppeteer-core`, layout based on the [Kami](https://github.com/tw93/kami) equity-report template, set in [Charis SIL](https://software.sil.org/charis/) (OFL)
 
 ---
 
@@ -172,6 +175,17 @@ Telegram will confirm `{"ok":true,"result":true}`.
 By default "this month" means the calendar month. If you get paid on, say, the 25th, set `CYCLE_START_DAY=25`. Each period then runs from the 25th to the 24th of the next month and is named after the month the salary pays for: 25 Sep to 24 Oct is the **October** period.
 
 The dashboard, budget page, Telegram budget alerts, monthly chart, reports, and the month filter on the expense list all follow the period. "Today" is computed in WIB (Asia/Jakarta), so the period switches at midnight local time, not UTC.
+
+---
+
+## PDF reports
+
+The **Laporan** page lists every period of the year with a PDF button. A period's report unlocks on its last day (WIB), so with payday on the 25th the October report (25 Sep - 24 Oct) is available from 24 Oct. The header button always points at the latest available report.
+
+PDFs are rendered on demand by `/laporan/pdf/<YYYY-MM>`, which runs as its own Vercel function (it bundles Chromium, about 70MB; the rest of the app stays small). The first download after a cold start takes a few seconds.
+
+- `@sparticuz/chromium` and `puppeteer-core` are pinned to the same Chrome major (153). Upgrade them together.
+- `@sparticuz/chromium` only runs on Linux x64. On macOS, point `CHROME_PATH` at a local Chrome or Chromium binary for development.
 
 ---
 
