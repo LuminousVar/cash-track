@@ -2,29 +2,15 @@
 	// Ikon transaksi. Urutannya: logo merek kalau nama merchant dikenali (kategori
 	// diabaikan), inisial kalau mereknya dikenali tapi belum ada file logo, selain itu
 	// ikon kategori. Logo dari static/brands/, tidak ada request ke pihak ketiga.
-	import Icon from './Icon.svelte';
+	import CategoryIcon from './CategoryIcon.svelte';
 	import { detectBrand } from '$lib/brands.js';
 	import { BRAND_LOGOS } from '$lib/brand-logos.js';
-	import { categoryColor, normCategory } from '$lib/format.js';
-
-	/** @type {Record<string, string>} */
-	const CATEGORY_ICONS = {
-		'Makanan & Minuman': 'utensils',
-		Belanja: 'bag',
-		Transport: 'car',
-		Tagihan: 'zap',
-		Kesehatan: 'heartPulse',
-		Hiburan: 'film',
-		Investasi: 'trendingUp',
-		Lainnya: 'dots'
-	};
 
 	/** @type {{ merchant?: string, category: string, size?: number }} */
 	let { merchant = '', category, size = 36 } = $props();
 
 	const brand = $derived(detectBrand(merchant));
 	const logo = $derived(brand ? BRAND_LOGOS[brand.slug] : undefined);
-	const cat = $derived(normCategory(category));
 	// File logo gagal dimuat: turun ke inisial, bukan gambar rusak.
 	let broken = $state(false);
 
@@ -55,12 +41,5 @@
 		aria-hidden="true">{initials(brand.name)}</span
 	>
 {:else}
-	<span
-		class="grid shrink-0 place-items-center rounded-[28%]"
-		style="width: {size}px; height: {size}px; color: {categoryColor(cat)}; background: color-mix(in srgb, {categoryColor(cat)} 13%, transparent)"
-		title={cat}
-		aria-hidden="true"
-	>
-		<Icon name={CATEGORY_ICONS[cat]} size={Math.round(size * 0.5)} strokeWidth={2} />
-	</span>
+	<CategoryIcon {category} {size} />
 {/if}

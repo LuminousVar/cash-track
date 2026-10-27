@@ -225,17 +225,43 @@ export function dailyTotals(expenses, key, startDay) {
 	return out;
 }
 
+/**
+ * Semua periode yang punya transaksi, lintas tahun, terbaru dulu. Bahan pemilih
+ * laporan PDF, supaya periode lama (termasuk tahun lalu) tetap bisa diunduh.
+ * @param {Expense[]} expenses
+ * @param {number} startDay
+ */
+function periodTotals(expenses, startDay) {
+	/** @type {Map<string, { key: string, amount: number, invested: number }>} */
+	const byKey = new Map();
+	for (const e of expenses) {
+		const key = cycleKey(e.date, startDay);
+		if (!key) continue;
+		const p = byKey.get(key) ?? { key, amount: 0, invested: 0 };
+		if (countsToBudget(e)) p.amount += e.total;
+		else p.invested += e.total;
+		byKey.set(key, p);
+	}
+	return [...byKey.values()].sort((a, b) => b.key.localeCompare(a.key));
+}
+
 /** Laporan: arus bulanan, ringkasan, total per kategori, dan data chart (tahun berjalan). */
 export async function getReport() {
 	if (!isConfigured()) {
 		const summary = demoSummary();
+		const year = summary.cycle.key.slice(0, 4);
+		const idx = Number(summary.cycle.key.slice(5, 7)) - 1;
 		return {
 			demo: true,
 			monthlyFlow: DEMO.monthlyFlow,
 			categoryFlow: demoCategoryFlow(),
 			summary,
 			categoryTotals: DEMO_CATEGORY_TOTALS,
-			trend: demoTrend(summary.cycle)
+			trend: demoTrend(summary.cycle),
+			periods: DEMO.monthlyFlow
+				.slice(0, idx + 1)
+				.map((m, i) => ({ key: `${year}-${String(i + 1).padStart(2, '0')}`, amount: m.amount, invested: 0 }))
+				.reverse()
 		};
 	}
 	const expenses = await listExpenses();
@@ -252,7 +278,7 @@ export async function getReport() {
 	const categoryTotals = CATEGORIES.filter((c) => c !== INVESTMENT)
 		.map((c) => ({ name: c, amount: categoryFlow.reduce((s, m) => s + (m[c] || 0), 0) }))
 		.sort((a, b) => b.amount - a.amount);
-	return { demo: false, monthlyFlow, categoryFlow, summary, categoryTotals, trend };
+	return { demo: false, monthlyFlow, categoryFlow, summary, categoryTotals, trend, periods: periodTotals(expenses, startDay) };
 }
 
 /** Data untuk halaman dashboard. Pakai DEMO bila Sheet belum dikonfigurasi. */

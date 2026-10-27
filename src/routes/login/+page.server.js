@@ -1,11 +1,14 @@
 import { fail, redirect } from '@sveltejs/kit';
 import {
-	verifyCredentials, createSessionToken, loginLockedFor, recordLogin, SESSION_COOKIE, SESSION_COOKIE_OPTIONS
+	verifyCredentials, createSessionToken, loginLockedFor, recordLogin, SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_IDLE_MS
 } from '$lib/server/auth.js';
 
 export function load({ url }) {
 	// Diisi hooks.server.js saat cookie sesi ada tapi sudah tidak berlaku.
-	return { expired: url.searchParams.get('reason') === 'expired' || url.searchParams.get('reason') === 'idle' };
+	return {
+		expired: url.searchParams.get('reason') === 'expired' || url.searchParams.get('reason') === 'idle',
+		idleMinutes: SESSION_IDLE_MS / 60000
+	};
 }
 
 export const actions = {

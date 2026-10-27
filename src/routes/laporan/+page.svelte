@@ -3,9 +3,11 @@
 	import SpendChart from '$lib/components/SpendChart.svelte';
 	import MonthlyChart from '$lib/components/MonthlyChart.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import CategoryIcon from '$lib/components/CategoryIcon.svelte';
+	import { untrack } from 'svelte';
 	import {
 		formatRp, categoryColor, cycleRangeLabel, budgetStatus, STATUS_STYLE,
-		reportReady, cycleRange, cycleLabel, prevCycleKey, formatDayMonth
+		reportReady, cycleRange, cycleLabel, formatDayMonth
 	} from '$lib/format.js';
 
 	let { data } = $props();
@@ -17,8 +19,10 @@
 	/** @param {string} key */
 	const ready = (key) => reportReady(key, data.cycleStartDay, data.today);
 
-	// Tombol di header: periode berjalan kalau sudah hari terakhirnya, selain itu periode lalu.
-	const latestReady = $derived(ready(data.report.summary.cycle.key) ? data.report.summary.cycle.key : prevCycleKey(data.report.summary.cycle.key));
+	// Pemilih di header: semua periode yang sudah selesai dan punya transaksi, lintas
+	// tahun, terbaru dulu. Supaya laporan lama yang lupa diunduh tetap bisa diambil.
+	const pdfPeriods = $derived(data.report.periods.filter((p) => ready(p.key)));
+	let pdfKey = $state(untrack(() => pdfPeriods[0]?.key ?? ''));
 
 	/**
 	 * Unduh lewat fetch (bukan link biasa) supaya ada status "Menyiapkan" selama
@@ -63,10 +67,23 @@
 </script>
 
 <PageHeader title="Laporan" description="Tahun {year}, dihitung per periode gajian.">
-	<button onclick={() => downloadPdf(latestReady)} disabled={busy !== null} class="btn btn-secondary w-full sm:w-auto">
-		<Icon name="download" />
-		{busy === latestReady ? 'Menyiapkan PDF...' : `Unduh PDF ${cycleLabel(latestReady)}`}
-	</button>
+	<div class="flex w-full gap-2 sm:w-auto">
+		<label class="min-w-0 flex-1 sm:flex-none">
+			<span class="sr-only">Periode laporan PDF</span>
+			<select bind:value={pdfKey} disabled={pdfPeriods.length === 0} class="field sm:w-60">
+				{#each pdfPeriods as p}
+					{@const range = cycleRangeLabel(p.key, data.cycleStartDay)}
+					<option value={p.key}>{cycleLabel(p.key)}{range ? `, ${range}` : ''}</option>
+				{:else}
+					<option value="">Belum ada laporan</option>
+				{/each}
+			</select>
+		</label>
+		<button onclick={() => downloadPdf(pdfKey)} disabled={busy !== null || !pdfKey} class="btn btn-secondary shrink-0">
+			<Icon name="download" class={busy === pdfKey ? 'animate-pulse' : ''} />
+			{busy === pdfKey ? 'Menyiapkan...' : 'Unduh PDF'}
+		</button>
+	</div>
 </PageHeader>
 
 {#if !ready(r.summary.cycle.key)}
@@ -181,9 +198,9 @@
 					{#each cats as c}
 						<li>
 							<a href="/pengeluaran?category={encodeURIComponent(c.name)}" class="group block">
-								<div class="flex items-baseline justify-between gap-3 text-sm">
-									<span class="flex items-center gap-2 group-hover:underline">
-										<span class="size-2 rounded-full" style="background: {categoryColor(c.name)}"></span>
+								<div class="flex items-center justify-between gap-3 text-sm">
+									<span class="flex items-center gap-2.5 group-hover:underline">
+										<CategoryIcon category={c.name} size={26} />
 										{c.name}
 									</span>
 									<span class="num text-ink-soft">

@@ -4,6 +4,7 @@
 	import BudgetStatus from '$lib/components/BudgetStatus.svelte';
 	import TransactionRow from '$lib/components/TransactionRow.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import CategoryIcon from '$lib/components/CategoryIcon.svelte';
 	import { formatRp, categoryColor, cycleLabel, prevCycleKey } from '$lib/format.js';
 
 	let { data } = $props();
@@ -73,9 +74,9 @@
 					{#each data.categories as c}
 						<li>
 							<a href="/pengeluaran?category={encodeURIComponent(c.name)}&period={s.cycle.key}" class="group block">
-								<div class="flex items-baseline justify-between gap-3 text-sm">
-									<span class="flex items-center gap-2 group-hover:underline">
-										<span class="size-2 rounded-full" style="background: {categoryColor(c.name)}"></span>
+								<div class="flex items-center justify-between gap-3 text-sm">
+									<span class="flex items-center gap-2.5 group-hover:underline">
+										<CategoryIcon category={c.name} size={26} />
 										{c.name}
 									</span>
 									<span class="num text-ink-soft">

@@ -29,7 +29,10 @@
 		</div>
 
 		<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-			<main class="flex-1 overflow-y-auto">
+			<!-- relative: elemen absolute di dalamnya (mis. tabel sr-only chart) diukur dari
+				 area scroll ini. Tanpa itu mereka memanjangkan dokumen, dan setelah main mentok
+				 browser ikut menggulir dokumen ke area kosong berwarna latar. -->
+			<main class="relative flex-1 overflow-y-auto overscroll-contain">
 				<div class="mx-auto w-full max-w-6xl px-4 pb-24 pt-5 sm:px-6 md:pb-10 md:pt-8">
 					{#if data.demo}
 						<p class="mb-5 rounded-lg border border-warn/30 bg-warn-bg px-3 py-2 text-sm text-warn">

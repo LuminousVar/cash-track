@@ -144,14 +144,14 @@
 			<text x={width - PAD.r} y={budgetY < PAD.t + 14 ? budgetY + 14 : budgetY - 6} text-anchor="end" class="fill-ink-soft text-[11px]">Anggaran</text>
 
 			{#if prevPath}
-				<path d={prevPath} fill="none" stroke="var(--color-ink-mute)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+				<path d={prevPath} fill="none" stroke="var(--color-chart-2)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
 			{/if}
 			<path d={curPath} fill="none" stroke="var(--color-chart-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
 
 			{#if active !== null}
 				<line x1={x(active)} x2={x(active)} y1={PAD.t} y2={PAD.t + plotH} stroke="var(--color-ink-soft)" />
 				{#if hasPrev && active < view.prev.length}
-					<circle cx={x(active)} cy={y(view.prev[active])} r="4" fill="var(--color-ink-mute)" stroke="var(--color-surface)" stroke-width="2" />
+					<circle cx={x(active)} cy={y(view.prev[active])} r="4" fill="var(--color-chart-2)" stroke="var(--color-surface)" stroke-width="2" />
 				{/if}
 			{/if}
 			{#if view.cur.length}
@@ -177,7 +177,7 @@
 				{/if}
 				{#if hasPrev && active < view.prev.length}
 					<div class="mt-1.5 flex items-center gap-2">
-						<span class="h-0.5 w-3 rounded-full bg-ink-mute"></span>
+						<span class="h-0.5 w-3 rounded-full bg-chart-2"></span>
 						<span class="num text-sm font-semibold">{formatRp(view.prev[active])}</span>
 					</div>
 					<p class="ml-5 text-[11px] opacity-70">{[view.prevName, view.prevSub(active)].filter(Boolean).join(', ')}</p>
@@ -194,7 +194,7 @@
 		</li>
 		{#if hasPrev}
 			<li class="flex items-center gap-2">
-				<span class="h-0.5 w-3.5 rounded-full bg-ink-mute"></span>
+				<span class="h-0.5 w-3.5 rounded-full bg-chart-2"></span>
 				{view.prevName}
 				<span class="num text-ink">{formatRp(view.prevTotal)}</span>
 			</li>
