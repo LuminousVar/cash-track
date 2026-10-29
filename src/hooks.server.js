@@ -3,11 +3,11 @@ import {
 	SESSION_COOKIE, SESSION_COOKIE_OPTIONS, readSessionToken, touchSessionToken, authConfigured
 } from '$lib/server/auth.js';
 
-// Route yang boleh diakses tanpa login. Webhook Telegram punya autentikasi
-// sendiri (x-telegram-bot-api-secret-token), jadi dia satu-satunya /api/* yang
+// Route yang boleh diakses tanpa login. Webhook Telegram (x-telegram-bot-api-secret-token)
+// dan cron harian (CRON_SECRET) punya autentikasi sendiri, jadi hanya mereka /api/* yang
 // terbuka. Route /api/* lain terlindungi secara default.
 /** @param {string} path */
-const isPublic = (path) => path === '/login' || path === '/api/telegram';
+const isPublic = (path) => path === '/login' || path === '/api/telegram' || path === '/api/cron/daily';
 
 // Cookie ditulis ulang paling sering sekali per menit, bukan di setiap request.
 const TOUCH_EVERY_MS = 60 * 1000;

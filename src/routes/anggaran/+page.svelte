@@ -31,10 +31,7 @@
 	<section class="card" aria-labelledby="settings-heading">
 		<div class="border-b border-line px-5 py-4">
 			<h2 id="settings-heading" class="text-sm font-semibold">Pengaturan anggaran</h2>
-			<p class="mt-0.5 text-sm text-ink-mute">
-				Berlaku untuk setiap periode.
-				{#if data.isVercel}Di Vercel nilai ini bisa kembali ke Environment Variables saat server restart. Untuk nilai permanen, ubah <code class="text-ink-soft">MONTHLY_BUDGET</code> dan <code class="text-ink-soft">BUDGET_WARN_PCT</code> di Vercel.{/if}
-			</p>
+			<p class="mt-0.5 text-sm text-ink-mute">Berlaku untuk setiap periode.</p>
 		</div>
 
 		<form
@@ -78,6 +75,20 @@
 					{:else}
 						Isi agar peringatan bisa dikirim.
 					{/if}
+				</span>
+			</label>
+
+			<label class="flex items-start gap-3 sm:col-span-3">
+				<input type="checkbox" name="DAILY_SUMMARY" checked={data.dailySummary} class="mt-0.5 size-4 shrink-0 accent-accent" />
+				<span>
+					<span class="block text-sm font-medium">Kirim ringkasan harian ke Telegram</span>
+					<span class="mt-0.5 block text-xs {data.cronReady ? 'text-ink-mute' : 'text-warn'}">
+						{#if data.cronReady}
+							Setiap malam sekitar pukul 20.00 WIB: total hari ini, sisa anggaran, dan jatah per hari sampai gajian.
+						{:else}
+							Belum aktif: isi <code>CRON_SECRET</code> di Environment Variables.
+						{/if}
+					</span>
 				</span>
 			</label>
 

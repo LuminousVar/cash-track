@@ -31,6 +31,100 @@ export function parseAmount(s) {
 	return Math.round((Number.isFinite(n) ? n : 0) * (unit === 'jt' || unit === 'juta' ? 1_000_000 : 1_000));
 }
 
+// Catat cepat lewat teks Telegram. Kata kunci dicocokkan dalam huruf kecil.
+/** @type {Record<string, string>} */
+const QUICK_CATEGORY = {
+	makan: 'Makanan & Minuman',
+	makanan: 'Makanan & Minuman',
+	minum: 'Makanan & Minuman',
+	minuman: 'Makanan & Minuman',
+	belanja: 'Belanja',
+	transport: 'Transport',
+	transportasi: 'Transport',
+	tagihan: 'Tagihan',
+	kesehatan: 'Kesehatan',
+	hiburan: 'Hiburan',
+	investasi: 'Investasi',
+	lainnya: 'Lainnya'
+};
+/** @type {Record<string, string>} */
+const QUICK_METHOD = {
+	tunai: 'Tunai', cash: 'Tunai',
+	qris: 'QRIS',
+	transfer: 'Transfer', tf: 'Transfer', trf: 'Transfer',
+	debit: 'Kartu Debit',
+	kredit: 'Kartu Kredit', cc: 'Kartu Kredit',
+	ewallet: 'E-wallet', 'e-wallet': 'E-wallet', gopay: 'E-wallet', ovo: 'E-wallet', dana: 'E-wallet', shopeepay: 'E-wallet'
+};
+const QUICK_YESTERDAY = ['kemarin', 'kemaren', 'kmrn'];
+const AMOUNT_UNIT = /^(rb|ribu|k|jt|juta)$/;
+
+/**
+ * Token untuk dicocokkan: huruf kecil, tanpa tanda baca di akhir.
+ * @param {string | undefined} t
+ */
+const quickWord = (t) => (t ?? '').toLowerCase().replace(/[.,;:!?]+$/, '');
+
+/**
+ * @typedef {{ merchant: string, total: number, date: string, category: string, payment_method: string }} QuickEntry
+ */
+
+/**
+ * Pengeluaran dari teks bebas: "kopi 25rb", "parkir 5000 transport",
+ * "makan siang warteg 22.000 tunai", "grab 18k kemarin".
+ * - Nominal dibaca parseAmount, termasuk "25 rb" dan awalan "rp". Kalau ada beberapa
+ *   angka ("beli 2 kopi 50rb"), yang terbesar dianggap nominal.
+ * - Kata kategori dan metode bayar hanya dibaca sesudah nominal, supaya "makan" di
+ *   "makan siang warteg" tetap jadi bagian nama. Kata kategori di dalam nama tetap
+ *   dipakai sebagai petunjuk kategori.
+ * - "kemarin" di posisi mana pun memundurkan tanggal satu hari.
+ * `category` kosong kalau tidak ada petunjuk, pemanggil yang menebak. null kalau tidak
+ * ada nama atau nominal di luar Rp100 s.d. Rp1 miliar (angka iseng, nomor HP).
+ * @param {string} text
+ * @param {string} [today]  "YYYY-MM-DD" WIB
+ * @returns {QuickEntry | null}
+ */
+export function parseQuickEntry(text, today = todayJakarta()) {
+	const tokens = String(text ?? '').trim().split(/\s+/).filter(Boolean);
+
+	let total = 0,
+		at = -1,
+		span = 0;
+	tokens.forEach((tok, i) => {
+		const t = quickWord(tok).replace(/^rp\.?/, '');
+		const next = quickWord(tokens[i + 1]);
+		const unit = /^[\d.,]+$/.test(t) && AMOUNT_UNIT.test(next) ? next : '';
+		const n = parseAmount(t + unit);
+		if (n > total) [total, at, span] = [n, i, unit ? 2 : 1];
+	});
+	if (total < 100 || total > 1_000_000_000) return null;
+
+	let date = today,
+		category = '',
+		method = '';
+	/** @type {string[]} */
+	const name = [];
+	/** @type {string[]} */
+	const categoryWords = [];
+	tokens.forEach((tok, i) => {
+		if (i >= at && i < at + span) return;
+		const w = quickWord(tok);
+		if (w === 'rp') return;
+		if (QUICK_YESTERDAY.includes(w)) date = addDays(today, -1);
+		else if (i > at && QUICK_METHOD[w]) method ||= QUICK_METHOD[w];
+		else if (i > at && QUICK_CATEGORY[w]) {
+			category ||= QUICK_CATEGORY[w];
+			categoryWords.push(tok);
+		} else name.push(tok);
+	});
+
+	// "25rb makan": kata kategorinya sekalian jadi nama.
+	const merchant = (name.length ? name : categoryWords).join(' ');
+	if (!merchant) return null;
+	category ||= name.map((t) => QUICK_CATEGORY[quickWord(t)]).find(Boolean) ?? '';
+	return { merchant: merchant[0].toUpperCase() + merchant.slice(1), total, date, category, payment_method: method };
+}
+
 // Nama lama dan variasi yang mungkin ada di Sheet atau dikirim DeepSeek. Baris lama
 // berkategori "Makanan" tidak perlu diubah: dibaca sebagai "Makanan & Minuman".
 /** @type {Record<string, string>} */
@@ -100,6 +194,28 @@ export const STATUS_STYLE = {
 	warn: { label: 'Mendekati batas', fg: 'text-warn', bg: 'bg-warn-bg', bar: 'bg-warn' },
 	over: { label: 'Melebihi anggaran', fg: 'text-danger', bg: 'bg-danger-bg', bar: 'bg-danger' }
 };
+
+/**
+ * Posisi anggaran periode berjalan. Satu hitungan untuk panel Sisa anggaran, /sisa,
+ * dan ringkasan harian Telegram.
+ * - `daysIncl`: sisa hari termasuk hari ini, supaya jatah harian tidak membagi dengan
+ *   nol di hari terakhir. `perDay` dibagi dengan ini.
+ * - `nextPerDay`: jatah per hari mulai besok, untuk ringkasan malam saat hari ini
+ *   dianggap selesai. 0 di hari terakhir periode.
+ * @param {{ spent: number, budget: number, cycle: { days: number, dayIndex: number, daysLeft: number } }} p
+ */
+export function budgetOutlook({ spent, budget, cycle }) {
+	const remaining = budget - spent;
+	const daysIncl = Math.max(1, cycle.daysLeft + 1);
+	return {
+		pct: budget > 0 ? Math.round((spent / budget) * 100) : 0,
+		remaining,
+		daysIncl,
+		perDay: Math.max(0, Math.floor(remaining / daysIncl)),
+		nextPerDay: cycle.daysLeft > 0 ? Math.max(0, Math.floor(remaining / cycle.daysLeft)) : 0,
+		projected: Math.round((spent / Math.max(1, cycle.dayIndex)) * cycle.days)
+	};
+}
 
 /**
  * Angka dengan pemisah ribuan titik untuk input, misalnya 20000 jadi "20.000".

@@ -167,7 +167,7 @@
 					<p role="alert" class="rounded-lg bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>
 				{/if}
 				{#if isEdit && expense?.source === 'telegram'}
-					<p class="text-sm text-ink-mute">Dicatat dari struk Telegram. Teks asli dan foto tetap tersimpan meski data di sini diubah.</p>
+					<p class="text-sm text-ink-mute">Dicatat lewat Telegram. Pesan asli (teks struk atau ketikan) tetap tersimpan di Sheet meski data di sini diubah.</p>
 				{/if}
 
 				<div class="grid grid-cols-2 gap-3">

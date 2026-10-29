@@ -95,7 +95,10 @@
 	html.dark {
 		color-scheme: dark;
 	}
+	/* viewport-fit=cover (app.html): di iPhone landscape konten tidak masuk ke area notch. */
 	body {
+		padding-left: env(safe-area-inset-left);
+		padding-right: env(safe-area-inset-right);
 		background: var(--color-canvas);
 		color: var(--color-ink);
 		font-family: var(--font-sans);

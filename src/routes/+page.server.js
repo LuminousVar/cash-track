@@ -3,8 +3,8 @@ import { getDashboardData, addExpense } from '$lib/server/expenses.js';
 import { checkBudgetAlert, getWarnPct } from '$lib/server/budget.js';
 
 export async function load() {
-	const data = await getDashboardData();
-	return { ...data, warnPct: getWarnPct() };
+	const [data, warnPct] = await Promise.all([getDashboardData(), getWarnPct()]);
+	return { ...data, warnPct };
 }
 
 export const actions = {

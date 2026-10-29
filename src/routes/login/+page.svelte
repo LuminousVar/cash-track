@@ -1,17 +1,13 @@
 <script>
 	import Icon from '$lib/components/Icon.svelte';
+	import Logo from '$lib/components/Logo.svelte';
 
 	let { data, form } = $props();
 </script>
 
 <div class="flex min-h-dvh flex-col bg-canvas">
 	<header class="flex h-16 items-center px-6">
-		<span class="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
-			<span class="grid size-6 place-items-center rounded-md bg-accent text-accent-fg">
-				<Icon name="receipt" size={14} strokeWidth={2} />
-			</span>
-			cashtrack
-		</span>
+		<Logo class="text-[15px]" />
 	</header>
 
 	<main class="flex flex-1 items-center justify-center px-6 pb-16">

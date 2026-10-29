@@ -51,8 +51,8 @@ function invalidate() {
 	_cache = null;
 }
 
-function monthlyBudget() {
-	const cfg = readConfig();
+async function monthlyBudget() {
+	const cfg = await readConfig();
 	return Number(cfg.MONTHLY_BUDGET || env.MONTHLY_BUDGET) || 9_500_000;
 }
 
@@ -118,8 +118,9 @@ export async function listExpenses() {
  * "Bulan" di sini = periode gajian (lihat cycle.js), bukan bulan kalender.
  * Investasi tidak dihitung ke pengeluaran maupun anggaran; totalnya dicatat terpisah.
  * @param {Expense[]} expenses
+ * @param {number} budget
  */
-function computeDashboard(expenses) {
+function computeDashboard(expenses, budget) {
 	const cycle = currentCycle();
 	const [year, monthNum] = cycle.key.split('-').map(Number);
 	const month = monthNum - 1;
@@ -168,7 +169,6 @@ function computeDashboard(expenses) {
 	}
 
 	const thisMonth = flow[month].amount;
-	const budget = monthlyBudget();
 	// Semua kategori yang punya pengeluaran di periode ini, terbesar dulu.
 	const categories = Object.entries(catThisMonth)
 		.sort((a, b) => b[1] - a[1])
@@ -203,7 +203,7 @@ export async function getExpenses() {
 	return isConfigured() ? listExpenses() : DEMO.transactions;
 }
 
-/** Anggaran bulanan aktif (dari env, default). */
+/** Anggaran bulanan aktif (tab Config, lalu env, lalu default). */
 export function getBudget() {
 	return monthlyBudget();
 }
@@ -264,8 +264,8 @@ export async function getReport() {
 				.reverse()
 		};
 	}
-	const expenses = await listExpenses();
-	const { summary, monthlyFlow, prevYearFlow, categoryFlow } = computeDashboard(expenses);
+	const [expenses, budget] = await Promise.all([listExpenses(), monthlyBudget()]);
+	const { summary, monthlyFlow, prevYearFlow, categoryFlow } = computeDashboard(expenses, budget);
 	const { key, startDay } = summary.cycle;
 	const prevKey = prevCycleKey(key);
 	const trend = {
@@ -284,8 +284,8 @@ export async function getReport() {
 /** Data untuk halaman dashboard. Pakai DEMO bila Sheet belum dikonfigurasi. */
 export async function getDashboardData() {
 	if (!isConfigured()) return { ...DEMO, transactions: DEMO.transactions.slice(0, 8), summary: demoSummary(), demo: true };
-	const expenses = await listExpenses();
-	const { summary, monthlyFlow, categories } = computeDashboard(expenses);
+	const [expenses, budget] = await Promise.all([listExpenses(), monthlyBudget()]);
+	const { summary, monthlyFlow, categories } = computeDashboard(expenses, budget);
 	return { transactions: expenses.slice(0, 8), summary, monthlyFlow, categories, demo: false };
 }
 

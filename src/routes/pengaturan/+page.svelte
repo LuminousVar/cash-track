@@ -90,12 +90,15 @@
 				<ol class="list-decimal space-y-1.5 pl-5 text-sm text-ink-soft">
 					<li>Kirim foto struk yang terang dan fokus ke bot.</li>
 					<li>Bot membaca teks, menentukan kategori, lalu menyimpan ke Google Sheet.</li>
-					<li>Bot membalas ringkasan beserta ID transaksi.</li>
+					<li>Bot membalas ringkasan beserta ID transaksi dan sisa anggaran.</li>
+					<li>Tanpa struk, ketik saja: <code>kopi 25rb</code>, <code>parkir 5000 transport</code>, <code>bensin 50rb tunai kemarin</code>.</li>
 				</ol>
 			</div>
 			<div>
 				<p class="eyebrow mb-2">Perintah bot</p>
 				<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+					<dt><code>/sisa</code></dt>
+					<dd class="text-ink-soft">Sisa anggaran, pengeluaran hari ini, dan jatah per hari.</dd>
 					<dt><code>/hapus</code></dt>
 					<dd class="text-ink-soft">Batalkan catatan Telegram terakhir.</dd>
 					<dt><code>/hapus &lt;id&gt;</code></dt>
@@ -109,7 +112,7 @@
 				<dl class="space-y-3 text-sm">
 					<div>
 						<dt class="font-medium">Pengeluaran tanpa struk?</dt>
-						<dd class="text-ink-soft">Gunakan tombol "Tambah pengeluaran" di Ringkasan atau Transaksi.</dd>
+						<dd class="text-ink-soft">Ketik ke bot, mis. <code>kopi 25rb</code>, atau gunakan tombol "Tambah pengeluaran" di Ringkasan atau Transaksi.</dd>
 					</div>
 					<div>
 						<dt class="font-medium">Salah baca struk?</dt>

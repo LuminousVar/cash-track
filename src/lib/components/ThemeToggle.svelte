@@ -35,6 +35,10 @@
 		}
 		const dark = value === 'dark' || (value === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
 		document.documentElement.classList.toggle('dark', dark);
+		// Status bar app terpasang (PWA) mengikuti warna latar halaman.
+		document
+			.querySelector('meta[name="theme-color"]')
+			?.setAttribute('content', getComputedStyle(document.body).backgroundColor);
 	}
 </script>
 

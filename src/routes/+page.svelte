@@ -52,7 +52,7 @@
 		<div class="bg-surface p-4">
 			<p class="eyebrow">Transaksi</p>
 			<p class="num mt-1 text-xl font-semibold">{s.count}</p>
-			<p class="mt-1 text-xs text-ink-mute">{s.fromTelegram} dari struk, {s.fromManual} manual</p>
+			<p class="mt-1 text-xs text-ink-mute">{s.fromTelegram} lewat Telegram, {s.fromManual} manual</p>
 		</div>
 		<a href="/pengeluaran?category=Investasi&period={s.cycle.key}" class="group bg-surface p-4 hover:bg-subtle/60">
 			<p class="eyebrow">Investasi periode ini</p>

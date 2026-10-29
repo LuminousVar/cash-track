@@ -1,7 +1,7 @@
 <script>
 	// Panel status anggaran periode berjalan. Menjawab satu pertanyaan:
 	// "berapa yang masih boleh dipakai sampai gajian berikutnya?"
-	import { formatRp, budgetStatus, STATUS_STYLE } from '$lib/format.js';
+	import { formatRp, budgetStatus, budgetOutlook, STATUS_STYLE } from '$lib/format.js';
 
 	/**
 	 * @type {{
@@ -14,14 +14,9 @@
 	 */
 	let { spent, budget, warnPct, cycle, children } = $props();
 
-	const pct = $derived(budget > 0 ? Math.round((spent / budget) * 100) : 0);
+	const { pct, remaining, daysIncl, perDay, projected } = $derived(budgetOutlook({ spent, budget, cycle }));
 	const status = $derived(budgetStatus(pct, warnPct));
 	const style = $derived(STATUS_STYLE[status]);
-	const remaining = $derived(budget - spent);
-	// Sisa hari termasuk hari ini, supaya jatah harian tidak membagi dengan nol di hari terakhir.
-	const daysIncl = $derived(Math.max(1, cycle.daysLeft + 1));
-	const perDay = $derived(Math.max(0, Math.floor(remaining / daysIncl)));
-	const projected = $derived(Math.round((spent / Math.max(1, cycle.dayIndex)) * cycle.days));
 	const endLabel = $derived(cycle.rangeLabel ? cycle.rangeLabel.split(' - ')[1] : `akhir ${cycle.label.split(' ')[0]}`);
 </script>
 

@@ -1,12 +1,13 @@
 // Webhook Telegram: foto struk dibaca Vision OCR, diurai DeepSeek, disimpan ke Sheet, lalu dibalas konfirmasi.
+// Teks seperti "kopi 25rb" dicatat langsung tanpa foto.
 import { env } from '$env/dynamic/private';
 import { getFile, downloadFileBase64, sendMessage } from '$lib/server/telegram.js';
 import { visionOcr } from '$lib/server/google.js';
-import { parseReceipt } from '$lib/server/deepseek.js';
+import { parseReceipt, guessCategory } from '$lib/server/deepseek.js';
 import { addReceipt, deleteExpense, lastTelegramExpense, findByPhoto } from '$lib/server/expenses.js';
-import { checkBudgetAlert } from '$lib/server/budget.js';
+import { checkBudgetAlert, getBudgetSnapshot, remainingLine, remainingMessage } from '$lib/server/budget.js';
 import { listGoals, addContribution } from '$lib/server/goals.js';
-import { formatRp, parseAmount, cycleLabel } from '$lib/format.js';
+import { formatRp, parseAmount, parseQuickEntry, cycleLabel } from '$lib/format.js';
 
 // Pipeline OCR+LLM bisa makan waktu, beri ruang di Vercel.
 export const config = { maxDuration: 60 };
@@ -37,6 +38,7 @@ function isAllowed(userId) {
 }
 
 const COMMANDS = [
+	'/sisa : sisa anggaran dan jatah per hari',
 	'/hapus : batalkan catatan terakhir',
 	'/hapus <id> : hapus catatan tertentu',
 	'/goals : lihat progres goals',
@@ -44,7 +46,9 @@ const COMMANDS = [
 	'/tarik <nominal> <goal> : ambil dari goal'
 ].join('\n');
 
-const HINT = `Kirim foto struk ya, nanti aku catat otomatis.\n\nPerintah lain:\n${COMMANDS}`;
+const QUICK_EXAMPLES = 'Tanpa struk? Ketik saja, mis. "kopi 25rb", "parkir 5000 transport", atau "bensin 50rb kemarin".';
+
+const HINT = `Kirim foto struk ya, nanti aku catat otomatis.\n${QUICK_EXAMPLES}\n\nPerintah lain:\n${COMMANDS}`;
 
 /** @param {import('$lib/server/goals.js').Goal} g */
 const goalLine = (g) => `${g.name}: ${formatRp(g.saved)} dari ${formatRp(g.target)} (${g.pct}%)`;
@@ -93,6 +97,48 @@ async function handleGoal(cmd, rest, userId) {
 }
 
 /**
+ * Balasan setelah transaksi tercatat, sama untuk foto struk dan teks. ID dicantumkan
+ * supaya salah baca bisa langsung dibatalkan, sisa anggaran supaya tidak perlu /sisa.
+ * @param {import('$lib/server/deepseek.js').ParsedReceipt} parsed
+ * @param {string | undefined} id
+ */
+async function recordedReply(parsed, id) {
+	const lines = [
+		'Tercatat.',
+		`Merchant : ${parsed.merchant || '-'}`,
+		`Total    : ${formatRp(parsed.total)}`,
+		`Kategori : ${parsed.category}`,
+		`Tanggal  : ${parsed.date}`
+	];
+	if (id) lines.push(`ID       : ${id}`, `Salah? Balas /hapus ${id}`);
+	try {
+		lines.push('', remainingLine(await getBudgetSnapshot()));
+	} catch (err) {
+		// Transaksi sudah tersimpan; baris sisa anggaran cukup dilewati.
+		console.error('snapshot anggaran gagal', err);
+	}
+	return lines.join('\n');
+}
+
+/**
+ * Catat pengeluaran dari teks bebas ("kopi 25rb"). Kategori ditebak DeepSeek kalau
+ * tidak disebut. Teks yang tidak terbaca sebagai pengeluaran dijawab dengan petunjuk.
+ * @param {string} text
+ * @param {number | string | undefined} userId
+ */
+async function handleQuickEntry(text, userId) {
+	const entry = parseQuickEntry(text);
+	if (!entry) return HINT;
+	const category = entry.category || (await guessCategory(entry.merchant));
+	/** @type {import('$lib/server/deepseek.js').ParsedReceipt} */
+	const parsed = { ...entry, category, currency: 'IDR', items: [] };
+	const { persisted, id } = await addReceipt(parsed, { rawText: text, user: userId });
+	if (!persisted) return 'Mode demo: belum tersambung ke Sheet, jadi tidak disimpan.';
+	void checkBudgetAlert();
+	return recordedReply(parsed, id);
+}
+
+/**
  * Tangani pesan teks (bukan foto). Mengembalikan balasan yang akan dikirim.
  * @param {string} text
  * @param {number | string | undefined} userId
@@ -105,8 +151,12 @@ async function handleText(text, userId) {
 	const arg = rest.split(/\s+/)[0];
 
 	if (cmd === '/start') {
-		return `Halo!\n\nKirim foto struk belanjaanmu ke sini. Aku baca, rapikan, dan catat otomatis ke spreadsheet.\n\n${COMMANDS}`;
+		return `Halo!\n\nKirim foto struk belanjaanmu ke sini. Aku baca, rapikan, dan catat otomatis ke spreadsheet.\n${QUICK_EXAMPLES}\n\n${COMMANDS}`;
 	}
+
+	if (!cmd.startsWith('/')) return handleQuickEntry(text, userId);
+
+	if (cmd === '/sisa') return remainingMessage(await getBudgetSnapshot());
 
 	if (cmd === '/goals' || cmd === '/nabung' || cmd === '/tarik') return handleGoal(cmd, rest.trim(), userId);
 
@@ -171,19 +221,12 @@ export async function POST({ request }) {
 
 		const parsed = await parseReceipt(rawText);
 		const { persisted, id } = await addReceipt(parsed, { fileId, rawText, user: msg.from?.id });
-		if (persisted) void checkBudgetAlert();
-
-		const lines = [
-			'Tercatat.',
-			`Merchant : ${parsed.merchant || '-'}`,
-			`Total    : ${formatRp(parsed.total)}`,
-			`Kategori : ${parsed.category}`,
-			`Tanggal  : ${parsed.date}`
-		];
-		// ID dicantumkan supaya salah baca bisa langsung dibatalkan: /hapus <id>
-		if (id) lines.push(`ID       : ${id}`, `Salah? Balas /hapus ${id}`);
-		if (!persisted) lines.push('', '(mode demo: belum tersimpan ke Sheet, atur kredensial Google)');
-		await sendMessage(chatId, lines.join('\n'));
+		if (!persisted) {
+			await sendMessage(chatId, 'Mode demo: struk terbaca, tapi belum tersimpan ke Sheet. Atur kredensial Google.');
+			return ok();
+		}
+		void checkBudgetAlert();
+		await sendMessage(chatId, await recordedReply(parsed, id));
 	} catch (err) {
 		console.error('telegram pipeline error', err);
 		await sendMessage(chatId, 'Maaf, ada kendala saat memproses struk. Coba lagi sebentar lagi.');

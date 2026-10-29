@@ -100,7 +100,7 @@
 	}
 </script>
 
-<PageHeader title="Transaksi" description="Semua pengeluaran dari struk Telegram dan input manual.">
+<PageHeader title="Transaksi" description="Semua pengeluaran dari Telegram (foto struk atau ketikan) dan input manual.">
 	<button onclick={() => (showAdd = true)} class="btn btn-primary w-full sm:w-auto">
 		<Icon name="plus" />
 		Tambah pengeluaran

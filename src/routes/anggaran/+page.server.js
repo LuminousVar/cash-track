@@ -1,30 +1,26 @@
 import { getDashboardData, getBudget } from '$lib/server/expenses.js';
-import { readConfig, writeConfig, isVercel } from '$lib/server/config.js';
+import { readConfig, writeConfig } from '$lib/server/config.js';
 import { getWarnPct } from '$lib/server/budget.js';
 import { env } from '$env/dynamic/private';
 import { fail } from '@sveltejs/kit';
 
-/** @param {string} key */
-function get(key) {
-	const cfg = readConfig();
-	return cfg[key] || env[key] || '';
-}
-
 export async function load() {
-	const data = await getDashboardData();
+	const [data, cfg, budget, warnPct] = await Promise.all([getDashboardData(), readConfig(), getBudget(), getWarnPct()]);
 	const firstAllowedId =
-		(get('TELEGRAM_ALLOWED_IDS') || '')
+		(env.TELEGRAM_ALLOWED_IDS || '')
 			.split(',')
 			.map((s) => s.trim())
 			.filter(Boolean)[0] ?? '';
 
 	return {
-		budget: getBudget(),
-		warnPct: getWarnPct(),
-		notifyChatId: get('BUDGET_NOTIFY_CHAT_ID'),
+		budget,
+		warnPct,
+		notifyChatId: cfg.BUDGET_NOTIFY_CHAT_ID || env.BUDGET_NOTIFY_CHAT_ID || '',
 		firstAllowedId,
-		summary: data.summary,
-		isVercel
+		// Default aktif. Cron hanya jalan kalau CRON_SECRET diisi (lihat /api/cron/daily).
+		dailySummary: cfg.DAILY_SUMMARY !== 'off',
+		cronReady: !!env.CRON_SECRET,
+		summary: data.summary
 	};
 }
 
@@ -41,13 +37,15 @@ export const actions = {
 		if (chatId && !/^-?\d+$/.test(chatId)) return fail(400, { error: 'ID Telegram hanya berisi angka.' });
 
 		try {
-			writeConfig({
+			await writeConfig({
 				MONTHLY_BUDGET: String(Math.round(budget)),
 				BUDGET_WARN_PCT: String(warn),
-				BUDGET_NOTIFY_CHAT_ID: chatId
+				BUDGET_NOTIFY_CHAT_ID: chatId,
+				DAILY_SUMMARY: form.get('DAILY_SUMMARY') ? 'on' : 'off'
 			});
 			return { success: true };
-		} catch {
+		} catch (err) {
+			console.error('simpan anggaran gagal', err);
 			return fail(500, { error: 'Gagal menyimpan pengaturan anggaran.' });
 		}
 	}

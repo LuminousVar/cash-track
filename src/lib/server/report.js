@@ -50,8 +50,7 @@ export async function getPeriodReport(key) {
 	const prev = all.filter((e) => countsToBudget(e) && cycleKey(e.date, startDay) === prevKey);
 
 	const total = sum(expenses);
-	const budget = getBudget();
-	const warnPct = getWarnPct();
+	const [budget, warnPct] = await Promise.all([getBudget(), getWarnPct()]);
 	const pct = Math.round((total / budget) * 100);
 
 	// Kategori yang hanya muncul di periode lalu tetap ikut, supaya selisihnya terbaca.
