@@ -250,6 +250,8 @@ A squared lowercase c with one green block where its lower stroke ends: the end 
 | `src/lib/assets/favicon.svg`, `static/favicon.ico` | browser tab |
 | `static/icons/` | apple-touch-icon (180), PWA icons (192, 512), maskable (512) |
 
+Category icons (`src/lib/components/CategoryIcon.svelte`) are drawn on the same grid: solid shapes, flat cuts, and a 16-unit gap between parts. Bowl and chopsticks, shopping bag, car, bill, capsule, ticket, rising bars whose top is a separate block, and a 2x2 grid for Lainnya.
+
 Colours: ink `#18181b`, green `#15803d` on light backgrounds; `#f4f4f5` and `#22c55e` on dark. In one colour, the block takes the same colour as the c. For the Telegram bot's profile photo, send `static/icons/maskable-512.png` to @BotFather with `/setuserpic` (it survives the circular crop).
 
 ---

@@ -2,7 +2,8 @@
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import { CATEGORIES, PAYMENT_METHODS, categoryColor } from '$lib/format.js';
+	import CategoryIcon from '$lib/components/CategoryIcon.svelte';
+	import { CATEGORIES, PAYMENT_METHODS } from '$lib/format.js';
 
 	let { data } = $props();
 </script>
@@ -71,7 +72,7 @@
 				<p class="eyebrow mb-2">Kategori (tetap)</p>
 				<ul class="flex flex-wrap gap-x-4 gap-y-2 text-sm">
 					{#each CATEGORIES as c}
-						<li class="flex items-center gap-2"><span class="size-2 rounded-full" style="background: {categoryColor(c)}"></span>{c}</li>
+						<li class="flex items-center gap-2"><CategoryIcon category={c} size={22} />{c}</li>
 					{/each}
 				</ul>
 			</div>
