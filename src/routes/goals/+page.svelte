@@ -9,6 +9,7 @@
 	import { formatRp, formatDayMonth, cycleLabel, daysBetween } from '$lib/format.js';
 	import { GOAL_TYPE_STYLE, TRACK_STYLE } from '$lib/goal-style.js';
 	import { goalIcon } from '$lib/goal-icons.js';
+	import { toast, toastSaved } from '$lib/toast.svelte.js';
 
 	let { data } = $props();
 
@@ -171,7 +172,15 @@
 							<span class="min-w-0 flex-1 truncate text-ink-soft">{l.note || (l.amount < 0 ? 'Penarikan' : 'Setoran')}{l.source === 'telegram' ? ' (Telegram)' : ''}</span>
 							<span class="num font-medium {l.amount < 0 ? 'text-danger' : ''}">{l.amount < 0 ? '-' : '+'}{formatRp(Math.abs(l.amount))}</span>
 							{#if !data.demo}
-								<form method="POST" action="?/uncontribute" use:enhance={() => async () => invalidateAll()}>
+								<form
+									method="POST"
+									action="?/uncontribute"
+									use:enhance={() => async ({ result }) => {
+										if (result.type === 'success') toastSaved(result.data, 'Catatan setoran dihapus.');
+										else if (result.type === 'failure') toast(String(result.data?.error ?? 'Gagal menghapus catatan.'), 'error');
+										await invalidateAll();
+									}}
+								>
 									<input type="hidden" name="logId" value={l.id} />
 									<button class="btn btn-ghost btn-icon h-6 w-6" aria-label="Hapus catatan {formatDayMonth(l.date)}" title="Hapus catatan">
 										<Icon name="x" size={12} />
@@ -213,7 +222,11 @@
 
 	{#if archived.length}
 		<details class="group">
-			<summary class="text-sm font-medium text-ink-soft hover:text-ink">Arsip ({archived.length})</summary>
+			<summary class="inline-flex list-none items-center gap-1.5 rounded-md text-sm font-medium text-ink-soft hover:text-ink [&::-webkit-details-marker]:hidden">
+				<Icon name="chevronRight" size={15} class="transition-transform group-open:rotate-90" />
+				Arsip
+				<span class="num rounded-full bg-subtle px-1.5 text-xs text-ink-mute">{archived.length}</span>
+			</summary>
 			<div class="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 				{#each archived as g (g.id)}{@render card(g)}{/each}
 			</div>

@@ -6,7 +6,10 @@
 	import DatePicker from './DatePicker.svelte';
 	import Select from './Select.svelte';
 	import CategoryIcon from './CategoryIcon.svelte';
+	import MethodIcon from './MethodIcon.svelte';
+	import Stepper from './Stepper.svelte';
 	import { CATEGORIES, PAYMENT_METHODS, normCategory, formatRp, formatNumber, parseNumber, todayJakarta } from '$lib/format.js';
+	import { toastSaved } from '$lib/toast.svelte.js';
 
 	/**
 	 * @type {{
@@ -140,7 +143,10 @@
 				error = String(result.data?.error ?? 'Gagal menyimpan.');
 				return;
 			}
-			if (result.type === 'success') onclose?.();
+			if (result.type === 'success') {
+				toastSaved(result.data, isEdit ? 'Perubahan transaksi disimpan.' : 'Pengeluaran ditambahkan.');
+				onclose?.();
+			}
 			// Action bisa hidup di route lain, jadi data halaman ini diambil ulang eksplisit.
 			await invalidateAll();
 		};
@@ -187,7 +193,9 @@
 					<Select name="category" label="Kategori" bind:value={category} options={categoryOptions}>
 						{#snippet icon(c)}<CategoryIcon category={c} size={20} />{/snippet}
 					</Select>
-					<Select name="method" label="Metode bayar" bind:value={method} options={methodOptions} class="col-span-2 sm:col-span-1" />
+					<Select name="method" label="Metode bayar" bind:value={method} options={methodOptions} class="col-span-2 sm:col-span-1">
+						{#snippet icon(m)}<MethodIcon method={m} />{/snippet}
+					</Select>
 				</div>
 
 				<fieldset>
@@ -195,11 +203,18 @@
 						<legend class="text-[13px] font-medium text-ink-soft">Barang</legend>
 						<button type="button" onclick={addItem} class="text-sm font-medium text-accent hover:underline">Tambah baris</button>
 					</div>
-					<div class="space-y-2">
+					<!-- HP: nama dan tombol hapus di baris pertama, jumlah dan harga di baris kedua.
+						 Layar lebar: satu baris. Posisi grid ditulis eksplisit untuk kedua susunan. -->
+					<div class="space-y-3 sm:space-y-2">
 						{#each items as item, i}
-							<div class="grid grid-cols-[1fr_3.5rem_7rem_2rem] items-center gap-2">
-								<input bind:value={item.name} placeholder="Nama barang" aria-label="Nama barang {i + 1}" class="field" />
-								<input type="number" min="1" bind:value={item.qty} aria-label="Jumlah barang {i + 1}" class="field num px-2 text-center" />
+							<div class="grid grid-cols-[6.5rem_1fr_2rem] items-center gap-2 sm:grid-cols-[1fr_6.5rem_7rem_2rem]">
+								<input
+									bind:value={item.name}
+									placeholder="Nama barang"
+									aria-label="Nama barang {i + 1}"
+									class="field col-span-2 col-start-1 row-start-1 sm:col-span-1"
+								/>
+								<Stepper bind:value={item.qty} min={1} max={999} label="Jumlah barang {i + 1}" class="col-start-1 row-start-2 sm:col-start-2 sm:row-start-1" />
 								<input
 									type="text"
 									inputmode="numeric"
@@ -207,13 +222,13 @@
 									placeholder="Harga"
 									aria-label="Harga satuan barang {i + 1}"
 									oninput={(e) => onPriceInput(e, i)}
-									class="field num text-right"
+									class="field num col-span-2 col-start-2 row-start-2 text-right sm:col-span-1 sm:col-start-3 sm:row-start-1"
 								/>
 								<button
 									type="button"
 									onclick={() => removeItem(i)}
 									disabled={items.length === 1}
-									class="btn btn-ghost btn-icon h-8 w-8"
+									class="btn btn-ghost btn-icon col-start-3 row-start-1 h-8 w-8 sm:col-start-4"
 									aria-label="Hapus baris {i + 1}"
 								>
 									<Icon name="x" size={14} />
@@ -268,7 +283,10 @@
 								return async ({ result }) => {
 									submitting = false;
 									if (result.type === 'failure') error = String(result.data?.error ?? 'Gagal menghapus.');
-									else onclose?.();
+									else {
+										if (result.type === 'success') toastSaved(result.data, 'Transaksi dihapus.');
+										onclose?.();
+									}
 									await invalidateAll();
 								};
 							}}

@@ -118,11 +118,23 @@
 
 <section class="card mt-6" aria-label="Daftar transaksi">
 	<div class="grid grid-cols-2 gap-2 border-b border-line p-3 lg:grid-cols-[1fr_auto_auto_auto]">
-		<label class="relative col-span-2 lg:col-span-1">
-			<span class="sr-only">Cari</span>
-			<Icon name="search" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute" />
-			<input bind:value={q} type="search" placeholder="Cari keterangan, barang, catatan" class="field pl-9" />
-		</label>
+		<div class="relative col-span-2 lg:col-span-1">
+			<label>
+				<span class="sr-only">Cari</span>
+				<Icon name="search" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute" />
+				<input bind:value={q} type="search" placeholder="Cari keterangan, barang, catatan" class="field pl-9 pr-9" />
+			</label>
+			{#if q}
+				<button
+					type="button"
+					onclick={() => (q = '')}
+					class="btn btn-ghost btn-icon absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+					aria-label="Hapus pencarian"
+				>
+					<Icon name="x" size={14} />
+				</button>
+			{/if}
+		</div>
 		<Select label="Periode" hideLabel bind:value={period} options={periodOptions} class="col-span-2 sm:col-span-1 lg:w-64" />
 		<Select label="Kategori" hideLabel bind:value={cat} options={categoryOptions} class="min-w-0 lg:w-48">
 			{#snippet icon(c)}

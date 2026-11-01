@@ -1,9 +1,10 @@
 <script>
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
-	import { page } from '$app/state';
+	import { page, navigating } from '$app/state';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import MobileNav from '$lib/components/MobileNav.svelte';
+	import Toaster from '$lib/components/Toaster.svelte';
 	import IdleGuard from '$lib/components/IdleGuard.svelte';
 	import { NAV, isActive } from '$lib/nav.js';
 
@@ -46,4 +47,41 @@
 			<MobileNav user={data.user} />
 		</div>
 	</div>
+	<Toaster />
 {/if}
+
+<!-- Garis tipis saat pindah halaman: load membaca Google Sheet dan bisa makan waktu.
+	 Baru tampil setelah 150ms supaya navigasi cepat tidak berkedip. -->
+{#if navigating.to}
+	<div class="nav-progress fixed inset-x-0 top-0 z-[70] h-0.5 overflow-hidden" role="progressbar" aria-label="Memuat halaman">
+		<div class="h-full w-1/3 bg-accent"></div>
+	</div>
+{/if}
+
+<style>
+	.nav-progress {
+		animation: nav-show 0ms 150ms both;
+	}
+	.nav-progress > div {
+		animation: nav-slide 1s ease-in-out infinite;
+	}
+	@keyframes nav-show {
+		from {
+			opacity: 0;
+		}
+	}
+	@keyframes nav-slide {
+		from {
+			transform: translateX(-100%);
+		}
+		to {
+			transform: translateX(300%);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.nav-progress > div {
+			width: 100%;
+			animation: none;
+		}
+	}
+</style>

@@ -9,6 +9,7 @@
 	import { GOAL_TYPES, formatNumber, parseNumber, todayJakarta } from '$lib/format.js';
 	import { GOAL_TYPE_STYLE } from '$lib/goal-style.js';
 	import { GOAL_ICONS, goalIcon } from '$lib/goal-icons.js';
+	import { toastSaved } from '$lib/toast.svelte.js';
 
 	/**
 	 * @type {{
@@ -59,16 +60,30 @@
 		el.value = formatNumber(target);
 	}
 
+	/**
+	 * Pesan sukses per action. Form buat, ubah, arsip, dan hapus memakai submit yang sama.
+	 * @param {URL} action
+	 */
+	function doneMessage(action) {
+		const name = action.search.replace('?/', '');
+		if (name === 'create') return 'Goal dibuat.';
+		if (name === 'delete') return 'Goal dihapus.';
+		if (name === 'archive') return goal?.archived ? 'Goal diaktifkan lagi.' : 'Goal diarsipkan.';
+		return 'Goal disimpan.';
+	}
+
 	/** @type {import('@sveltejs/kit').SubmitFunction} */
-	function submit() {
+	function submit({ action }) {
 		busy = true;
 		error = '';
+		const message = doneMessage(action);
 		return async ({ result }) => {
 			busy = false;
 			if (result.type === 'failure') {
 				error = String(result.data?.error ?? 'Gagal menyimpan.');
 				return;
 			}
+			if (result.type === 'success') toastSaved(result.data, message);
 			onclose();
 			await invalidateAll();
 		};

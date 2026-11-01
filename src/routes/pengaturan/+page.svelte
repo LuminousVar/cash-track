@@ -3,6 +3,7 @@
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import CategoryIcon from '$lib/components/CategoryIcon.svelte';
+	import MethodIcon from '$lib/components/MethodIcon.svelte';
 	import { CATEGORIES, PAYMENT_METHODS } from '$lib/format.js';
 
 	let { data } = $props();
@@ -78,7 +79,11 @@
 			</div>
 			<div>
 				<p class="eyebrow mb-2">Metode bayar</p>
-				<p class="text-sm text-ink-soft">{PAYMENT_METHODS.join(', ')}</p>
+				<ul class="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+					{#each PAYMENT_METHODS as m}
+						<li class="flex items-center gap-2"><MethodIcon method={m} size={22} />{m}</li>
+					{/each}
+				</ul>
 			</div>
 		</div>
 	</section>

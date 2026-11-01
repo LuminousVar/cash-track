@@ -6,6 +6,7 @@
 	import Modal from './Modal.svelte';
 	import DatePicker from './DatePicker.svelte';
 	import { formatRp, formatNumber, parseNumber, todayJakarta } from '$lib/format.js';
+	import { toastSaved } from '$lib/toast.svelte.js';
 
 	/**
 	 * @type {{
@@ -52,12 +53,14 @@
 	function submit() {
 		busy = true;
 		error = '';
+		const message = mode === 'withdraw' ? 'Penarikan dicatat.' : 'Setoran dicatat.';
 		return async ({ result }) => {
 			busy = false;
 			if (result.type === 'failure') {
 				error = String(result.data?.error ?? 'Gagal menyimpan.');
 				return;
 			}
+			if (result.type === 'success') toastSaved(result.data, message);
 			onclose();
 			await invalidateAll();
 		};

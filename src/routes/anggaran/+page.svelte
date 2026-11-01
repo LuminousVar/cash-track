@@ -3,12 +3,15 @@
 	import { enhance } from '$app/forms';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import BudgetStatus from '$lib/components/BudgetStatus.svelte';
+	import Stepper from '$lib/components/Stepper.svelte';
 	import { formatNumber, parseNumber } from '$lib/format.js';
+	import { toast } from '$lib/toast.svelte.js';
 
 	let { data, form } = $props();
 
 	let saving = $state(false);
 	let budgetRaw = $state(untrack(() => data.budget));
+	let warnPct = $state(untrack(() => data.warnPct));
 
 	/** @param {Event & { currentTarget: HTMLInputElement }} e */
 	function onBudgetInput(e) {
@@ -39,9 +42,10 @@
 			action="?/save"
 			use:enhance={() => {
 				saving = true;
-				return async ({ update }) => {
+				return async ({ result, update }) => {
 					await update({ reset: false });
 					saving = false;
+					if (result.type === 'success') toast('Pengaturan anggaran disimpan.');
 				};
 			}}
 			class="grid gap-5 p-5 sm:grid-cols-3"
@@ -55,14 +59,11 @@
 				<input type="hidden" name="MONTHLY_BUDGET" value={budgetRaw} />
 			</label>
 
-			<label>
-				<span class="label">Peringatan saat mencapai</span>
-				<div class="relative">
-					<input name="BUDGET_WARN_PCT" type="number" min="1" max="99" value={data.warnPct} required class="field num pr-8" />
-					<span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-mute">%</span>
-				</div>
+			<div>
+				<span class="label" aria-hidden="true">Peringatan saat mencapai</span>
+				<Stepper name="BUDGET_WARN_PCT" label="Peringatan saat mencapai" bind:value={warnPct} min={1} max={99} step={5} suffix="%" />
 				<span class="mt-1.5 block text-xs text-ink-mute">Peringatan kedua dikirim saat melewati 100%.</span>
-			</label>
+			</div>
 
 			<label>
 				<span class="label">Kirim ke ID Telegram</span>
@@ -78,8 +79,13 @@
 				</span>
 			</label>
 
-			<label class="flex items-start gap-3 sm:col-span-3">
-				<input type="checkbox" name="DAILY_SUMMARY" checked={data.dailySummary} class="mt-0.5 size-4 shrink-0 accent-accent" />
+			<label class="flex cursor-pointer items-start gap-3 sm:col-span-3">
+				<!-- Checkbox asli (tetap terkirim bersama form), tampil sebagai switch. -->
+				<input type="checkbox" role="switch" name="DAILY_SUMMARY" checked={data.dailySummary} class="peer sr-only" />
+				<span
+					aria-hidden="true"
+					class="relative mt-px h-5 w-9 shrink-0 rounded-full bg-line-strong transition-colors after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-accent peer-checked:after:translate-x-4 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent"
+				></span>
 				<span>
 					<span class="block text-sm font-medium">Kirim ringkasan harian ke Telegram</span>
 					<span class="mt-0.5 block text-xs {data.cronReady ? 'text-ink-mute' : 'text-warn'}">
@@ -94,7 +100,6 @@
 
 			<div class="flex flex-wrap items-center gap-3 sm:col-span-3">
 				<button type="submit" disabled={saving} class="btn btn-primary">{saving ? 'Menyimpan…' : 'Simpan'}</button>
-				{#if form?.success}<p role="status" class="text-sm text-success">Tersimpan.</p>{/if}
 				{#if form?.error}<p role="alert" class="text-sm text-danger">{form.error}</p>{/if}
 			</div>
 		</form>
