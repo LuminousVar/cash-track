@@ -4,6 +4,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import Modal from './Modal.svelte';
+	import DatePicker from './DatePicker.svelte';
 	import { formatRp, formatNumber, parseNumber, todayJakarta } from '$lib/format.js';
 
 	/**
@@ -101,10 +102,7 @@
 			</label>
 
 			<div class="grid grid-cols-2 gap-3">
-				<label>
-					<span class="label">Tanggal</span>
-					<input type="date" name="date" bind:value={date} class="field" />
-				</label>
+				<DatePicker name="date" label="Tanggal" bind:value={date} max={todayJakarta()} />
 				<label>
 					<span class="label">Catatan <span class="font-normal text-ink-mute">(opsional)</span></span>
 					<input name="note" bind:value={note} maxlength="200" class="field" />

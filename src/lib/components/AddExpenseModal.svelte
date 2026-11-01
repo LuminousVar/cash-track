@@ -3,6 +3,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import Icon from './Icon.svelte';
+	import DatePicker from './DatePicker.svelte';
 	import { CATEGORIES, PAYMENT_METHODS, normCategory, formatRp, formatNumber, parseNumber, todayJakarta } from '$lib/format.js';
 
 	/**
@@ -175,10 +176,7 @@
 						<span class="label">Keterangan / tempat</span>
 						<input name="merchant" bind:value={merchant} placeholder="mis. Indomaret" class="field" />
 					</label>
-					<label>
-						<span class="label">Tanggal</span>
-						<input type="date" name="date" bind:value={date} required class="field" />
-					</label>
+					<DatePicker name="date" label="Tanggal" bind:value={date} max={todayJakarta()} />
 					<label>
 						<span class="label">Kategori</span>
 						<select name="category" bind:value={category} class="field">
