@@ -4,6 +4,7 @@
 	// Semua hitungan tanggal di UTC supaya tidak bergeser karena zona waktu.
 	import { tick } from 'svelte';
 	import Icon from './Icon.svelte';
+	import Popover from './Popover.svelte';
 	import { MONTHS_LONG, addDays, daysBetween, formatDay, formatDayMonth, todayJakarta } from '$lib/format.js';
 
 	/**
@@ -25,8 +26,6 @@
 	let today = $state(todayJakarta());
 	// Hari yang bisa difokus keyboard (roving tabindex). Bulan yang tampil ikut hari ini.
 	let focused = $state(todayJakarta());
-	let top = $state(0);
-	let left = $state(0);
 	/** @type {HTMLDivElement | undefined} */
 	let root = $state();
 	/** @type {HTMLButtonElement | undefined} */
@@ -145,38 +144,7 @@
 			hide();
 		}
 	}
-
-	/** @param {Event} e */
-	function onOutside(e) {
-		if (open && !root?.contains(/** @type {Node} */ (e.target))) hide(false);
-	}
-
-	// Popover fixed supaya tidak terpotong area scroll dialog. Di bawah tombol kalau
-	// muat, kalau tidak di atasnya, dan selalu di dalam layar.
-	function place() {
-		if (!trigger || !pop) return;
-		const r = trigger.getBoundingClientRect();
-		const gap = 6;
-		const edge = 8;
-		const h = pop.offsetHeight;
-		const below = r.bottom + gap + h <= window.innerHeight - edge || r.top - gap - h < edge;
-		top = below ? r.bottom + gap : r.top - gap - h;
-		left = Math.max(edge, Math.min(r.left, window.innerWidth - pop.offsetWidth - edge));
-	}
-
-	$effect(() => {
-		if (!open || !pop) return;
-		place();
-		window.addEventListener('resize', place);
-		window.addEventListener('scroll', place, true);
-		return () => {
-			window.removeEventListener('resize', place);
-			window.removeEventListener('scroll', place, true);
-		};
-	});
 </script>
-
-<svelte:window onpointerdown={onOutside} onfocusin={onOutside} />
 
 <div bind:this={root} onkeydown={onKeydown} role="presentation">
 	<label for={uid} id="{uid}-label" class="label">{label}</label>
@@ -196,14 +164,16 @@
 	</button>
 
 	{#if open}
-		<div
-			bind:this={pop}
+		<Popover
+			anchor={trigger}
+			scope={root}
+			onclose={() => hide(false)}
+			bind:el={pop}
 			role="dialog"
 			aria-modal="false"
 			aria-label="Pilih {label.toLowerCase()}"
 			tabindex="-1"
-			style="top: {top}px; left: {left}px"
-			class="fixed z-10 w-max rounded-xl border border-line bg-surface p-3 shadow-lg outline-none"
+			class="w-max p-3"
 		>
 			<div class="mb-1 flex items-center justify-between pl-1">
 				<p id="{uid}-month" class="text-sm font-semibold" aria-live="polite">{viewLabel}</p>
@@ -266,6 +236,6 @@
 					</button>
 				{/each}
 			</div>
-		</div>
+		</Popover>
 	{/if}
 </div>

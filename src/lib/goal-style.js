@@ -1,11 +1,12 @@
 // Ikon, warna, dan label status untuk Goals (dipakai halaman dan modal).
 
+// `icon` adalah kunci GOAL_ICONS (goal-icons.js), dipakai kalau nama goal tidak memberi petunjuk.
 /** @type {Record<string, { icon: string, color: string }>} */
 export const GOAL_TYPE_STYLE = {
-	'Kebutuhan masa depan': { icon: 'home', color: 'var(--color-cat-investasi)' },
-	Keinginan: { icon: 'sparkles', color: 'var(--color-cat-kesehatan)' },
-	'Dana darurat': { icon: 'shield', color: 'var(--color-cat-transport)' },
-	Lainnya: { icon: 'target', color: 'var(--color-cat-lainnya)' }
+	'Kebutuhan masa depan': { icon: 'brankas', color: 'var(--color-cat-investasi)' },
+	Keinginan: { icon: 'hadiah', color: 'var(--color-cat-kesehatan)' },
+	'Dana darurat': { icon: 'darurat', color: 'var(--color-cat-transport)' },
+	Lainnya: { icon: 'bendera', color: 'var(--color-cat-lainnya)' }
 };
 
 /** Label dan token warna per status jalur goal (lihat summarize di server/goals.js). */

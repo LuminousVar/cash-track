@@ -4,9 +4,11 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import Modal from './Modal.svelte';
-	import Icon from './Icon.svelte';
-	import { GOAL_TYPES, formatNumber, parseNumber } from '$lib/format.js';
+	import GoalIcon from './GoalIcon.svelte';
+	import MonthPicker from './MonthPicker.svelte';
+	import { GOAL_TYPES, formatNumber, parseNumber, todayJakarta } from '$lib/format.js';
 	import { GOAL_TYPE_STYLE } from '$lib/goal-style.js';
+	import { GOAL_ICONS, goalIcon } from '$lib/goal-icons.js';
 
 	/**
 	 * @type {{
@@ -23,11 +25,16 @@
 	let target = $state(0);
 	let deadline = $state('');
 	let notes = $state('');
+	// Kosong = ditebak dari nama goal (goalIcon), sama seperti logo merek pada transaksi.
+	let icon = $state('');
+	let pickIcon = $state(false);
 	let busy = $state(false);
 	let error = $state('');
 	let confirmDelete = $state(false);
 
 	const isEdit = $derived(!!goal);
+	const color = $derived((GOAL_TYPE_STYLE[type] ?? GOAL_TYPE_STYLE.Lainnya).color);
+	const shownIcon = $derived(goalIcon({ icon, name, type }));
 
 	$effect(() => {
 		if (!open) return;
@@ -40,6 +47,8 @@
 			target = g?.target ?? 0;
 			deadline = g?.deadline?.slice(0, 7) ?? '';
 			notes = g?.notes ?? '';
+			icon = g?.icon ?? '';
+			pickIcon = false;
 		});
 	});
 
@@ -85,16 +94,52 @@
 				{#each GOAL_TYPES as t}
 					{@const st = GOAL_TYPE_STYLE[t]}
 					<label
-						class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors
+						class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent
 							{type === t ? 'border-accent bg-accent-soft text-ink' : 'border-line-strong text-ink-soft hover:bg-subtle'}"
 					>
 						<input type="radio" name="type" value={t} bind:group={type} class="sr-only" />
-						<span style="color: {st.color}"><Icon name={st.icon} size={16} /></span>
+						<GoalIcon icon={st.icon} color={st.color} size={16} bare />
 						{t}
 					</label>
 				{/each}
 			</div>
 		</fieldset>
+
+		<div>
+			<span class="label" id="goal-icon-label">Ikon</span>
+			<input type="hidden" name="icon" value={icon} />
+			<div class="flex items-center gap-3 rounded-lg border border-line-strong py-2 pl-2 pr-1.5">
+				<GoalIcon icon={shownIcon} {color} size={36} />
+				<div class="min-w-0 flex-1">
+					<p class="truncate text-sm font-medium">{GOAL_ICONS[shownIcon]?.label}</p>
+					<p class="text-xs text-ink-mute">{icon ? 'Dipilih sendiri' : 'Otomatis dari nama dan jenis'}</p>
+				</div>
+				<button type="button" class="btn btn-ghost h-8 px-2.5 text-[13px]" aria-expanded={pickIcon} aria-controls="goal-icon-grid" onclick={() => (pickIcon = !pickIcon)}>
+					{pickIcon ? 'Selesai' : 'Ganti'}
+				</button>
+			</div>
+			{#if pickIcon}
+				<div id="goal-icon-grid" role="radiogroup" aria-labelledby="goal-icon-label" class="mt-2 grid grid-cols-6 gap-1.5 sm:grid-cols-8">
+					<label
+						class="col-span-2 flex h-11 cursor-pointer items-center justify-center rounded-lg border text-[13px] font-medium transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent
+							{icon === '' ? 'border-accent bg-accent-soft text-ink' : 'border-line text-ink-soft hover:bg-subtle'}"
+					>
+						<input type="radio" name="icon-pick" value="" bind:group={icon} class="sr-only" />
+						Otomatis
+					</label>
+					{#each Object.entries(GOAL_ICONS) as [key, ic]}
+						<label
+							title={ic.label}
+							class="grid h-11 cursor-pointer place-items-center rounded-lg border transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent
+								{icon === key ? 'border-accent bg-accent-soft' : 'border-line hover:bg-subtle'}"
+						>
+							<input type="radio" name="icon-pick" value={key} bind:group={icon} aria-label={ic.label} class="sr-only" />
+							<GoalIcon icon={key} color={icon === key ? color : 'var(--color-ink-soft)'} size={20} bare />
+						</label>
+					{/each}
+				</div>
+			{/if}
+		</div>
 
 		<div class="grid grid-cols-2 gap-3">
 			<label class="col-span-2 sm:col-span-1">
@@ -104,10 +149,18 @@
 					<input name="target" inputmode="numeric" value={formatNumber(target)} oninput={onTargetInput} required class="field num pl-9" />
 				</div>
 			</label>
-			<label class="col-span-2 sm:col-span-1">
-				<span class="label">Tenggat <span class="font-normal text-ink-mute">(opsional)</span></span>
-				<input type="month" name="deadline" bind:value={deadline} class="field" />
-			</label>
+			<div class="col-span-2 sm:col-span-1">
+				<MonthPicker
+					name="deadline"
+					label="Tenggat"
+					hint="(opsional)"
+					bind:value={deadline}
+					min={todayJakarta().slice(0, 7)}
+					optional
+					placeholder="Tanpa tenggat"
+					clearLabel="Tanpa tenggat"
+				/>
+			</div>
 		</div>
 
 		<label class="block">

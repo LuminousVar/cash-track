@@ -4,6 +4,8 @@
 	import AddExpenseModal from '$lib/components/AddExpenseModal.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import MerchantIcon from '$lib/components/MerchantIcon.svelte';
+	import CategoryIcon from '$lib/components/CategoryIcon.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import { page } from '$app/state';
 	import { formatRp, formatDay, CATEGORIES, INVESTMENT, normCategory, countsToBudget, cycleKey, cycleLabel, cycleRangeLabel } from '$lib/format.js';
 
@@ -39,12 +41,19 @@
 		[...new Set([data.currentCycleKey, ...data.expenses.map((e) => periodOf(e.date)).filter(Boolean)])]
 			.sort()
 			.reverse()
-			.map((key) => {
-				const range = cycleRangeLabel(key, data.cycleStartDay);
-				const name = key === data.currentCycleKey ? `${cycleLabel(key)} (berjalan)` : cycleLabel(key);
-				return { key, label: range ? `${name}, ${range}` : name };
-			})
+			.map((key) => ({
+				value: key,
+				label: key === data.currentCycleKey ? `${cycleLabel(key)} (berjalan)` : cycleLabel(key),
+				hint: cycleRangeLabel(key, data.cycleStartDay)
+			}))
+			.concat({ value: 'Semua', label: 'Semua periode', hint: '' })
 	);
+	const categoryOptions = [{ value: 'Semua', label: 'Semua kategori' }, ...CATEGORIES.map((c) => ({ value: c, label: c }))];
+	const sourceOptions = [
+		{ value: 'Semua', label: 'Semua sumber' },
+		{ value: 'telegram', label: 'Struk Telegram' },
+		{ value: 'manual', label: 'Manual' }
+	];
 
 	const PAGE = 50;
 	let limit = $state(PAGE);
@@ -114,28 +123,13 @@
 			<Icon name="search" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute" />
 			<input bind:value={q} type="search" placeholder="Cari keterangan, barang, catatan" class="field pl-9" />
 		</label>
-		<label class="col-span-2 sm:col-span-1">
-			<span class="sr-only">Periode</span>
-			<select bind:value={period} class="field lg:w-64">
-				{#each periodOptions as o}<option value={o.key}>{o.label}</option>{/each}
-				<option value="Semua">Semua periode</option>
-			</select>
-		</label>
-		<label>
-			<span class="sr-only">Kategori</span>
-			<select bind:value={cat} class="field lg:w-40">
-				<option value="Semua">Semua kategori</option>
-				{#each CATEGORIES as c}<option>{c}</option>{/each}
-			</select>
-		</label>
-		<label>
-			<span class="sr-only">Sumber</span>
-			<select bind:value={src} class="field lg:w-36">
-				<option value="Semua">Semua sumber</option>
-				<option value="telegram">Struk Telegram</option>
-				<option value="manual">Manual</option>
-			</select>
-		</label>
+		<Select label="Periode" hideLabel bind:value={period} options={periodOptions} class="col-span-2 sm:col-span-1 lg:w-64" />
+		<Select label="Kategori" hideLabel bind:value={cat} options={categoryOptions} class="min-w-0 lg:w-48">
+			{#snippet icon(c)}
+				{#if c !== 'Semua'}<CategoryIcon category={c} size={20} />{/if}
+			{/snippet}
+		</Select>
+		<Select label="Sumber" hideLabel bind:value={src} options={sourceOptions} class="min-w-0 lg:w-40" />
 	</div>
 
 	<div class="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2.5 text-sm">

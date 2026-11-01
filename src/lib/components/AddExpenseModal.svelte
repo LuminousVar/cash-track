@@ -4,6 +4,8 @@
 	import { invalidateAll } from '$app/navigation';
 	import Icon from './Icon.svelte';
 	import DatePicker from './DatePicker.svelte';
+	import Select from './Select.svelte';
+	import CategoryIcon from './CategoryIcon.svelte';
 	import { CATEGORIES, PAYMENT_METHODS, normCategory, formatRp, formatNumber, parseNumber, todayJakarta } from '$lib/format.js';
 
 	/**
@@ -28,6 +30,11 @@
 	let error = $state('');
 	/** @type {HTMLDivElement | undefined} */
 	let panel = $state();
+
+	const categoryOptions = CATEGORIES.map((c) => ({ value: c, label: c }));
+	// Struk Telegram bisa tanpa metode bayar. Tanpa opsi kosong, form menampilkan dan
+	// menyimpan "Tunai" diam-diam saat diedit.
+	const methodOptions = [{ value: '', label: 'Tidak diketahui' }, ...PAYMENT_METHODS.map((m) => ({ value: m, label: m }))];
 
 	const isEdit = $derived(mode === 'edit');
 	// Action update dan delete dipusatkan di /pengeluaran; halaman lain memposting ke sana.
@@ -177,21 +184,10 @@
 						<input name="merchant" bind:value={merchant} placeholder="mis. Indomaret" class="field" />
 					</label>
 					<DatePicker name="date" label="Tanggal" bind:value={date} max={todayJakarta()} />
-					<label>
-						<span class="label">Kategori</span>
-						<select name="category" bind:value={category} class="field">
-							{#each CATEGORIES as c}<option>{c}</option>{/each}
-						</select>
-					</label>
-					<label class="col-span-2 sm:col-span-1">
-						<span class="label">Metode bayar</span>
-						<!-- Struk Telegram bisa tanpa metode bayar. Tanpa opsi kosong, browser
-							 menampilkan dan menyimpan "Tunai" diam-diam saat diedit. -->
-						<select name="method" bind:value={method} class="field">
-							<option value="">Tidak diketahui</option>
-							{#each PAYMENT_METHODS as m}<option>{m}</option>{/each}
-						</select>
-					</label>
+					<Select name="category" label="Kategori" bind:value={category} options={categoryOptions}>
+						{#snippet icon(c)}<CategoryIcon category={c} size={20} />{/snippet}
+					</Select>
+					<Select name="method" label="Metode bayar" bind:value={method} options={methodOptions} class="col-span-2 sm:col-span-1" />
 				</div>
 
 				<fieldset>

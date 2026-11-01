@@ -2,12 +2,14 @@
 // Disimpan di spreadsheet yang sama: tab "Goals" untuk goal, "GoalLog" untuk riwayat
 // setoran dan penarikan. Kedua tab dibuat otomatis saat pertama dipakai.
 // Terpisah dari pengeluaran: setoran tidak muncul di transaksi dan tidak dihitung ke anggaran.
-import { readRows, appendRow, updateRow, deleteRows, ensureTab, isConfigured } from './google.js';
+import { readRows, appendRow, updateRow, deleteRows, ensureTab, writeRange, isConfigured } from './google.js';
 import { GOAL_TYPES, todayJakarta, daysBetween, addDays } from '$lib/format.js';
+import { GOAL_ICONS } from '$lib/goal-icons.js';
 
 const GOALS_TAB = 'Goals';
 const LOG_TAB = 'GoalLog';
-const GOAL_HEADER = ['id', 'created', 'name', 'type', 'target', 'deadline', 'notes', 'status'];
+// icon: kunci GOAL_ICONS pilihan user, kosong berarti ditebak dari nama.
+const GOAL_HEADER = ['id', 'created', 'name', 'type', 'target', 'deadline', 'notes', 'status', 'icon'];
 const LOG_HEADER = ['id', 'goal_id', 'date', 'amount', 'note', 'source', 'user'];
 
 /** ID pendek, sama seperti transaksi. */
@@ -23,7 +25,7 @@ const text = (v) => (v ? `'${v}` : '');
  * @typedef {{ id: string, goalId: string, date: string, amount: number, note: string, source: string, rowNumber: number }} GoalLog
  * @typedef {{
  *   id: string, created: string, name: string, type: string, target: number, deadline: string,
- *   notes: string, archived: boolean, rowNumber: number
+ *   notes: string, archived: boolean, icon: string, rowNumber: number
  * }} GoalRow
  */
 
@@ -36,6 +38,8 @@ async function ensureTabs() {
 async function readAll() {
 	await ensureTabs();
 	const [g, l] = await Promise.all([readRows(GOALS_TAB), readRows(LOG_TAB)]);
+	// Tab lama dibuat sebelum ada kolom icon: lengkapi header sekali.
+	if (g[0] && g[0].length < GOAL_HEADER.length) await writeRange(`${GOALS_TAB}!A1`, [GOAL_HEADER]);
 	const goals = g.slice(1).map((r, i) => ({
 		id: r[0] ?? '',
 		created: r[1] ?? '',
@@ -45,6 +49,7 @@ async function readAll() {
 		deadline: r[5] ?? '',
 		notes: r[6] ?? '',
 		archived: (r[7] ?? '') === 'arsip',
+		icon: GOAL_ICONS[r[8] ?? ''] ? (r[8] ?? '') : '',
 		rowNumber: i + 2
 	}));
 	const logs = l.slice(1).map((r, i) => ({
@@ -97,6 +102,7 @@ function summarize(g, logs, today) {
 		notes: g.notes,
 		created: g.created,
 		archived: g.archived,
+		icon: g.icon,
 		saved,
 		remaining,
 		pct: g.target > 0 ? Math.min(100, Math.round((saved / g.target) * 100)) : 0,
@@ -122,14 +128,14 @@ export async function listGoals() {
 }
 
 /**
- * @param {{ name: string, type: string, target: number, deadline: string, notes: string }} input
+ * @param {{ name: string, type: string, target: number, deadline: string, notes: string, icon: string }} input
  */
 export async function createGoal(input) {
 	if (!isConfigured()) return { persisted: false };
 	await ensureTabs();
 	const id = newId();
 	await appendRow(
-		[text(id), new Date().toISOString(), text(input.name), input.type, String(Math.round(input.target)), input.deadline, text(input.notes), ''],
+		[text(id), new Date().toISOString(), text(input.name), input.type, String(Math.round(input.target)), input.deadline, text(input.notes), '', input.icon],
 		GOALS_TAB
 	);
 	return { persisted: true, id };
@@ -138,7 +144,7 @@ export async function createGoal(input) {
 /**
  * Ubah goal. Kolom yang tidak dikirim tetap.
  * @param {string} id
- * @param {{ name?: string, type?: string, target?: number, deadline?: string, notes?: string, archived?: boolean }} patch
+ * @param {{ name?: string, type?: string, target?: number, deadline?: string, notes?: string, archived?: boolean, icon?: string }} patch
  */
 export async function updateGoal(id, patch) {
 	if (!isConfigured()) return { persisted: false };
@@ -155,7 +161,8 @@ export async function updateGoal(id, patch) {
 			String(Math.round(patch.target ?? g.target)),
 			patch.deadline ?? g.deadline,
 			text(patch.notes ?? g.notes),
-			(patch.archived ?? g.archived) ? 'arsip' : ''
+			(patch.archived ?? g.archived) ? 'arsip' : '',
+			patch.icon ?? g.icon
 		],
 		GOALS_TAB
 	);
@@ -210,10 +217,10 @@ export async function deleteContribution(id) {
 function demoData(today) {
 	/** @type {GoalRow[]} */
 	const goals = [
-		{ id: 'demo-1', created: addDays(today, -150), name: 'Dana darurat 6 bulan', type: 'Dana darurat', target: 30_000_000, deadline: addDays(today, 420), notes: '', archived: false, rowNumber: 2 },
-		{ id: 'demo-2', created: addDays(today, -60), name: 'Laptop kerja baru', type: 'Keinginan', target: 18_000_000, deadline: addDays(today, 150), notes: 'MacBook Air', archived: false, rowNumber: 3 },
-		{ id: 'demo-3', created: addDays(today, -30), name: 'DP rumah', type: 'Kebutuhan masa depan', target: 120_000_000, deadline: addDays(today, 1460), notes: '', archived: false, rowNumber: 4 },
-		{ id: 'demo-4', created: addDays(today, -200), name: 'Liburan ke Jepang', type: 'Keinginan', target: 15_000_000, deadline: '', notes: '', archived: false, rowNumber: 5 }
+		{ id: 'demo-1', created: addDays(today, -150), name: 'Dana darurat 6 bulan', type: 'Dana darurat', target: 30_000_000, deadline: addDays(today, 420), notes: '', archived: false, icon: '', rowNumber: 2 },
+		{ id: 'demo-2', created: addDays(today, -60), name: 'Laptop kerja baru', type: 'Keinginan', target: 18_000_000, deadline: addDays(today, 150), notes: 'MacBook Air', archived: false, icon: '', rowNumber: 3 },
+		{ id: 'demo-3', created: addDays(today, -30), name: 'DP rumah', type: 'Kebutuhan masa depan', target: 120_000_000, deadline: addDays(today, 1460), notes: '', archived: false, icon: '', rowNumber: 4 },
+		{ id: 'demo-4', created: addDays(today, -200), name: 'Liburan ke Jepang', type: 'Keinginan', target: 15_000_000, deadline: '', notes: '', archived: false, icon: '', rowNumber: 5 }
 	];
 	/** @type {GoalLog[]} */
 	const logs = [];

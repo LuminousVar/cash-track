@@ -5,8 +5,10 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import GoalModal from '$lib/components/GoalModal.svelte';
 	import ContributeModal from '$lib/components/ContributeModal.svelte';
+	import GoalIcon from '$lib/components/GoalIcon.svelte';
 	import { formatRp, formatDayMonth, cycleLabel, daysBetween } from '$lib/format.js';
 	import { GOAL_TYPE_STYLE, TRACK_STYLE } from '$lib/goal-style.js';
+	import { goalIcon } from '$lib/goal-icons.js';
 
 	let { data } = $props();
 
@@ -85,13 +87,7 @@
 		{@const tr = TRACK_STYLE[g.track]}
 		<article class="card flex flex-col p-4 sm:p-5 {g.archived ? 'opacity-70' : ''}">
 			<div class="flex items-start gap-3">
-				<span
-					class="grid size-10 shrink-0 place-items-center rounded-xl"
-					style="color: {st.color}; background: color-mix(in srgb, {st.color} 13%, transparent)"
-					aria-hidden="true"
-				>
-					<Icon name={st.icon} size={20} strokeWidth={2} />
-				</span>
+				<GoalIcon icon={goalIcon(g)} color={st.color} size={40} />
 				<div class="min-w-0 flex-1">
 					<h3 class="truncate font-semibold">{g.name}</h3>
 					<p class="text-xs text-ink-mute">{g.type}</p>
@@ -192,7 +188,7 @@
 
 	{#if active.length === 0 && reached.length === 0}
 		<section class="card px-6 py-12 text-center">
-			<span class="mx-auto grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent"><Icon name="target" size={24} /></span>
+			<span class="mx-auto block w-fit"><GoalIcon icon="brankas" color="var(--color-accent)" size={48} /></span>
 			<h2 class="mt-4 font-semibold">Belum ada goal</h2>
 			<p class="mx-auto mt-1 max-w-sm text-sm text-ink-soft">
 				Buat target seperti dana darurat, DP rumah, atau barang yang sedang diincar. Setoran dicatat terpisah dan tidak mengurangi anggaran.

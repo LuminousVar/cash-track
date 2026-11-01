@@ -1,13 +1,14 @@
 import { fail } from '@sveltejs/kit';
 import { listGoals, createGoal, updateGoal, deleteGoal, addContribution, deleteContribution } from '$lib/server/goals.js';
 import { GOAL_TYPES, parseAmount, todayJakarta } from '$lib/format.js';
+import { GOAL_ICONS } from '$lib/goal-icons.js';
 
 export async function load() {
 	return { goals: await listGoals(), today: todayJakarta() };
 }
 
 /**
- * Field goal dari form. Tenggat dikirim sebagai "YYYY-MM" (input month) dan disimpan
+ * Field goal dari form. Tenggat dikirim sebagai "YYYY-MM" (MonthPicker) dan disimpan
  * sebagai hari terakhir bulan itu.
  * @param {FormData} fd
  */
@@ -19,12 +20,14 @@ function readGoal(fd) {
 		deadline = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
 	}
 	const type = String(fd.get('type') || '');
+	const icon = String(fd.get('icon') || '');
 	return {
 		name: String(fd.get('name') || '').trim().slice(0, 80),
 		type: GOAL_TYPES.includes(type) ? type : 'Lainnya',
 		target: parseAmount(String(fd.get('target') || '')),
 		deadline,
-		notes: String(fd.get('notes') || '').trim().slice(0, 300)
+		notes: String(fd.get('notes') || '').trim().slice(0, 300),
+		icon: GOAL_ICONS[icon] ? icon : ''
 	};
 }
 

@@ -3,7 +3,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { page } from '$app/state';
 	import Sidebar from '$lib/components/Sidebar.svelte';
-	import Icon from '$lib/components/Icon.svelte';
+	import MobileNav from '$lib/components/MobileNav.svelte';
 	import IdleGuard from '$lib/components/IdleGuard.svelte';
 	import { NAV, isActive } from '$lib/nav.js';
 
@@ -43,28 +43,7 @@
 				</div>
 			</main>
 
-			<!-- Tab bar HP: semua menu selalu terlihat, tanpa drawer. -->
-			<nav
-				aria-label="Navigasi utama"
-				class="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
-			>
-				<ul class="grid grid-cols-6">
-					{#each NAV as item}
-						{@const active = isActive(page.url.pathname, item.href)}
-						<li>
-							<a
-								href={item.href}
-								aria-current={active ? 'page' : undefined}
-								class="flex h-14 flex-col items-center justify-center gap-1 text-[10px] font-medium
-									{active ? 'text-accent' : 'text-ink-mute'}"
-							>
-								<Icon name={item.icon} size={20} />
-								{item.label}
-							</a>
-						</li>
-					{/each}
-				</ul>
-			</nav>
+			<MobileNav user={data.user} />
 		</div>
 	</div>
 {/if}
